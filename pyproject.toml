@@ -31,6 +31,8 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "structlog>=23.1.0",
     "pydantic>=2.0.0",
+    "rich>=13.0.0",
+    "sqlalchemy>=2.0.0",
 ]
 
 [project.optional-dependencies]
@@ -63,8 +65,16 @@ target-version = "py312"
 select = ["E", "F", "I", "N", "W", "UP"]
 ignore = []
 
+[tool.ruff.lint.per-file-ignores]
+# HTML report has long embedded HTML/JS strings
+"src/aap_migration_planner/reporting/html_report.py" = ["E501"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = "test_*.py"
 addopts = "--cov=src --cov-report=term-missing"
 asyncio_mode = "auto"
+
+[tool.bandit]
+exclude_dirs = ["tests", ".venv", "venv", "build", "dist"]
+skips = ["B101"]  # Skip assert_used in tests

@@ -26,6 +26,7 @@ Examples of unacceptable behavior include:
 ## Reporting
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by:
+
 - Opening an issue in this repository
 - Contacting the project maintainers directly
 

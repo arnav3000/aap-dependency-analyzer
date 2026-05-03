@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  # Main backend service - Analysis engine CLI/API
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: aap-toolkit-backend:latest
+    container_name: aap-toolkit-backend
+    environment:
+    - AAP_URL=${AAP_URL:-https://aap.example.com}
+    - AAP_TOKEN=${AAP_TOKEN:-your_token_here}
+    - AAP_VERIFY_SSL=${AAP_VERIFY_SSL:-false}
+    - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      # Mount for output files
+    - ./data:/app/data
+    - ./logs:/app/logs
+    networks:
+    - aap-toolkit-network
+    command: [--help]
+    restart: unless-stopped
+
+  # Streamlit Web UI - Main frontend
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    image: aap-toolkit-web:latest
+    container_name: aap-toolkit-web
+    ports:
+    - 8501:8501
+    environment:
+    - AAP_URL=${AAP_URL:-https://aap.example.com}
+    - AAP_TOKEN=${AAP_TOKEN:-your_token_here}
+    - AAP_VERIFY_SSL=${AAP_VERIFY_SSL:-false}
+    - SIZING_GUIDE_URL=http://sizing-guide:5002
+    volumes:
+      # Mount for development (comment out for production)
+      # - ./web:/app/web
+      # - ./src:/app/src
+    - ./data:/app/data
+    depends_on:
+    - backend
+    - sizing-guide
+    networks:
+    - aap-toolkit-network
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD, curl, -f, http://localhost:8501/_stcore/health]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # AAP Sizing Guide - Capacity planning microservice
+  sizing-guide:
+    image: ghcr.io/arnav3000/aap-sizing-guide:latest
+    container_name: aap-sizing-guide
+    build:
+      context: https://github.com/arnav3000/aap-sizing-guide.git
+      dockerfile: Dockerfile
+    ports:
+    - 5002:5002
+    environment:
+    - FLASK_ENV=production
+    networks:
+    - aap-toolkit-network
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD, curl, -f, http://localhost:5002/health]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+networks:
+  aap-toolkit-network:
+    driver: bridge
+    name: aap-toolkit-network
+
+volumes:
+  data:
+  logs:

@@ -8,7 +8,7 @@ assignees: ''
 
 ## Is your feature request related to a problem?
 
-A clear and concise description of what the problem is. 
+A clear and concise description of what the problem is.
 Example: I'm always frustrated when [...]
 
 ## Describe the solution you'd like
@@ -24,6 +24,7 @@ A clear and concise description of any alternative solutions or features you've 
 Explain how this feature would be used and who would benefit from it.
 
 Example:
+
 - As a migration planner, I want to [action] so that [benefit]
 - This would help with [specific scenario]
 

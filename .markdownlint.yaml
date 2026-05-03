@@ -1,0 +1,45 @@
+# Markdownlint configuration
+# Enforce documentation quality and prevent bloat
+
+# Default state for all rules
+default: true
+
+# Line length - enforce reasonable documentation length
+MD013:
+  # Limit line length to prevent overly verbose docs
+  line_length: 120
+  # Allow longer lines in tables and code blocks
+  tables: false
+  code_blocks: false
+
+# Multiple headers with the same content
+MD024:
+  # Allow duplicate headers if they're not siblings
+  siblings_only: true
+
+# Inline HTML
+MD033:
+  # Allow certain HTML elements that are useful in docs
+  allowed_elements:
+  - br
+  - details
+  - summary
+  - img
+  - a
+
+# Bare URLs
+MD034: false  # Allow bare URLs (common in docs)
+
+# First line in file
+MD041:
+  # First line should be a top-level header
+  level: 1
+
+# Code fence style
+MD046:
+  # Use fenced code blocks
+  style: fenced
+
+# File length limit - CRITICAL for preventing documentation bloat
+# This is the key rule to prevent unlimited docs
+MD025: true  # Single top-level header

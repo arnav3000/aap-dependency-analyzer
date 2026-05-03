@@ -1,0 +1,127 @@
+# Gitleaks configuration for AAP Migration Planner
+# https://github.com/gitleaks/gitleaks
+
+title = "AAP Migration Planner Gitleaks Config"
+
+[extend]
+# Use default Gitleaks rules
+useDefault = true
+
+[allowlist]
+description = "Allowlist for test fixtures, examples, and sample data"
+
+# Allow test/example tokens that are clearly not real
+regexes = [
+    '''test[_-]?token''',
+    '''example[_-]?key''',
+    '''fake[_-]?secret''',
+    '''dummy[_-]?password''',
+    '''placeholder''',
+    # AAP-specific placeholder patterns
+    '''<your.*token>''',
+    '''<placeholder.*>''',
+    '''"<.*-token>"''',
+    '''AAP_TOKEN="<.*>"''',
+    '''\*\*\*REDACTED\*\*\*''',
+    '''\*\*\*REMOVED\*\*\*''',
+    # Sample data patterns
+    '''7hQPemf52tPVTwGcrxePbW5gPj0B9m''',  # Example token from docs
+    '''sample.*token''',
+]
+
+# Paths to ignore - test fixtures, examples, documentation, cache
+paths = [
+    '''tests/fixtures/.*''',
+    '''tests/test_data/.*''',
+    '''examples/.*''',
+    '''scripts/generate_sample_data\.py''',
+    '''data/.*\.db$''',
+    '''data/.*\.json$''',
+    '''data/.*\.db-wal$''',
+    '''data/.*\.db-shm$''',
+    '''\.cache/.*''',
+    '''\.pytest_cache/.*''',
+    '''\.mypy_cache/.*''',
+    '''\.ruff_cache/.*''',
+    '''__pycache__/.*''',
+    '''.*\.backup.*''',
+    '''.*\.bak$''',
+    '''docs/demo_script\.md$''',
+    '''CLAUDE\.md$''',
+    '''\.env\.example$''',
+]
+
+# Stopwords - common false positives in code
+stopwords = [
+    '''localhost''',
+    '''127\.0\.0\.1''',
+    '''0\.0\.0\.0''',
+    '''host\.containers\.internal''',
+    '''host\.docker\.internal''',
+]
+
+[[rules]]
+id = "aap-api-token"
+description = "Ansible Automation Platform API Token"
+regex = '''(?i)(aap|awx|controller|tower)[_-]?(api[_-]?)?token['\"]?\s*[:=]\s*['\"]?[a-zA-Z0-9]{40,}'''
+tags = ["aap", "token", "api"]
+
+# Allowlist for this rule
+[rules.allowlist]
+regexes = [
+    '''AAP_TOKEN.*example''',
+    '''aap.*token.*placeholder''',
+]
+
+[[rules]]
+id = "aap-url-with-credentials"
+description = "AAP URL with embedded credentials"
+regex = '''https?://[a-zA-Z0-9]+:[a-zA-Z0-9]+@[a-zA-Z0-9\.\-]+'''
+tags = ["aap", "url", "credentials"]
+
+[[rules]]
+id = "ssh-private-key"
+description = "SSH Private Key"
+regex = '''-----BEGIN( RSA| OPENSSH| DSA| EC| PGP)? PRIVATE KEY( BLOCK)?-----'''
+tags = ["ssh", "private-key"]
+
+[[rules]]
+id = "generic-api-key"
+description = "Generic API Key"
+regex = '''(?i)(api[_-]?key|apikey)['\"]?\s*[:=]\s*['\"]([a-zA-Z0-9_\-]{32,})['\"]'''
+tags = ["api", "key"]
+
+# Allowlist for this rule
+[rules.allowlist]
+regexes = [
+    '''api[_-]?key.*example''',
+    '''api[_-]?key.*test''',
+]
+
+[[rules]]
+id = "password-in-code"
+description = "Password in code or config"
+regex = '''(?i)(password|passwd|pwd)['\"]?\s*[:=]\s*['\"]([^'\"]{8,})['\"]'''
+tags = ["password"]
+entropy = 3.5
+
+# Allowlist for this rule - skip common test passwords
+[rules.allowlist]
+regexes = [
+    '''(password|passwd)['\"]?\s*[:=]\s*['\"](\*{4,}|x{4,}|changeme|password123|admin|test)''',
+    '''PASSWORD[_-]FIELD''',
+    '''\$encrypted\$''',  # AAP encrypted credential marker
+]
+
+[[rules]]
+id = "database-connection-string"
+description = "Database connection string with credentials"
+regex = '''(?i)(postgresql|mysql|mongodb|redis)://[a-zA-Z0-9_]+:[^@\s]+@[a-zA-Z0-9\.\-]+'''
+tags = ["database", "credentials"]
+
+# Allowlist for this rule
+[rules.allowlist]
+regexes = [
+    '''postgresql://.*:password@localhost''',
+    '''postgresql://.*changeme@''',
+]

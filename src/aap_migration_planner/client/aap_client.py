@@ -46,7 +46,7 @@ class AAPClient(BaseAPIClient):
         """
         super().__init__(
             base_url=config.url,
-            token=config.token,
+            token=config.token.get_secret_value(),
             verify_ssl=config.verify_ssl,
             timeout=config.timeout,
             rate_limit=rate_limit,
@@ -78,7 +78,7 @@ class AAPClient(BaseAPIClient):
             if not version:
                 logger.warning(
                     "version_not_found_in_config",
-                    message="Version field not found in /config/ response, using fallback"
+                    message="Version field not found in /config/ response, using fallback",
                 )
                 # Try to extract from ansible_version or default to 2.4.0
                 version = config_data.get("ansible_version", "2.4.0")
@@ -91,7 +91,7 @@ class AAPClient(BaseAPIClient):
             logger.error(
                 "version_detection_failed",
                 error=str(e),
-                message="Failed to detect AAP version, defaulting to 2.4.0"
+                message="Failed to detect AAP version, defaulting to 2.4.0",
             )
             # Default to 2.4.0 if detection fails
             self._version_cache = "2.4.0"

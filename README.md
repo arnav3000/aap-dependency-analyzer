@@ -10,6 +10,7 @@
 AAP Migration Planner helps you **plan and de-risk** migrations from Ansible Automation Platform 2.x to newer versions by analyzing dependencies, detecting risks, and recommending migration sequences.
 
 **Use it to:**
+
 - 🔍 Discover cross-organization dependencies
 - 📊 Generate visual dependency graphs and risk reports
 - 🗺️ Get recommended migration order for multi-org environments
@@ -20,6 +21,22 @@ AAP Migration Planner helps you **plan and de-risk** migrations from Ansible Aut
 ---
 
 ## Quick Start
+
+### Option 1: Web UI (Recommended)
+
+```bash
+# Clone repository
+git clone https://github.com/arnav3000/aap-migration-planner.git
+cd aap-migration-planner
+
+# Build and start containers
+make start
+
+# Access web UI
+open http://localhost:8501
+```
+
+### Option 2: CLI
 
 ```bash
 # Install
@@ -44,9 +61,56 @@ aap-planner report --format html --output migration-plan.html
 
 ---
 
+## Features
+
+### 🌐 Web UI
+
+- **Interactive Dependency Graph** - Visualize org-to-org dependencies
+- **Migration Timeline** - Phase-by-phase migration plan with Gantt charts
+- **Risk Dashboard** - Executive metrics and complexity scoring
+- **Capacity Sizing** - Infrastructure sizing calculator for AAP 2.6
+- **Export Reports** - JSON, CSV, PDF (coming soon)
+
+### 💻 CLI
+
+- **Dependency Analysis** - Discover cross-org dependencies programmatically
+- **Report Generation** - HTML, text, and JSON formats
+- **Validation** - Test AAP connectivity and credentials
+- **Automation-Ready** - CI/CD integration support
+
+### 🐳 Container-First
+
+- **Podman & Docker Support** - Rootless containers for security
+- **Microservices Architecture** - Modular, scalable design
+- **One-Command Deployment** - `make start` and you're running
+
+---
+
 ## Installation
 
-### From PyPI (Recommended)
+### Using Containers (Recommended)
+
+```bash
+# Clone repository
+git clone https://github.com/arnav3000/aap-migration-planner.git
+cd aap-migration-planner
+
+# Copy environment template
+cp .env.example .env
+
+# Edit .env with your AAP credentials
+# AAP_URL=https://your-aap.example.com
+# AAP_TOKEN=your_token_here
+
+# Build and start all services
+make start
+
+# Access:
+# - Web UI: http://localhost:8501
+# - Sizing Guide: http://localhost:5002
+```
+
+### From PyPI (CLI Only)
 
 ```bash
 pip install aap-migration-planner
@@ -57,14 +121,14 @@ pip install aap-migration-planner
 ```bash
 git clone https://github.com/arnav3000/aap-migration-planner.git
 cd aap-migration-planner
-pip install -e .
+pip install -e ".[dev]"
 ```
 
 ### Prerequisites
 
-- Python 3.12 or higher
-- Access to AAP instance (API credentials)
-- Network connectivity to AAP controller
+- **For Containers**: Podman or Docker
+- **For CLI**: Python 3.12 or higher
+- **For Both**: Access to AAP instance (API credentials)
 
 ---
 
@@ -89,11 +153,13 @@ LOG_LEVEL=INFO
 ### 1. Pre-Migration Planning
 
 Analyze your AAP instance before starting migration to identify:
+
 - Cross-org dependencies that require coordinated migration
 - Resource risks (missing credentials, broken references)
 - Optimal migration sequence
 
 **Example:**
+
 ```bash
 aap-planner analyze --all --output pre-migration-analysis.json
 aap-planner report --format html --output pre-migration-report.html
@@ -102,11 +168,13 @@ aap-planner report --format html --output pre-migration-report.html
 ### 2. Multi-Org Migration Sequencing
 
 For AAP instances with multiple organizations:
+
 - Discover which orgs can be migrated independently
 - Get recommended migration order based on dependencies
 - Identify "foundation" orgs that must migrate first
 
 **Example:**
+
 ```bash
 # Analyze all orgs
 aap-planner analyze --all
@@ -118,11 +186,13 @@ aap-planner report --format html
 ### 3. Risk Assessment
 
 Before executing migration:
+
 - Detect broken references and missing dependencies
 - Estimate migration complexity per organization
 - Generate executive summary for stakeholders
 
 **Example:**
+
 ```bash
 # Analyze specific orgs you're concerned about
 aap-planner analyze --organization "Production" --organization "Staging"

@@ -60,6 +60,7 @@ pre-commit install
 ### Development Workflow
 
 1. Create a new branch from `main`:
+
    ```bash
    git checkout -b feature/your-feature-name
    ```
@@ -67,17 +68,20 @@ pre-commit install
 2. Make your changes
 
 3. Run tests:
+
    ```bash
    pytest
    ```
 
 4. Run linting:
+
    ```bash
    ruff check src/
    ruff format src/
    ```
 
 5. Commit your changes:
+
    ```bash
    git add .
    git commit -m "feat: add your feature description"
@@ -92,9 +96,11 @@ pre-commit install
 3. Ensure all tests pass
 4. Update CHANGELOG.md (if exists)
 5. Push to your fork:
+
    ```bash
    git push origin feature/your-feature-name
    ```
+
 6. Open a Pull Request on GitHub
 
 ### Pull Request Guidelines
@@ -126,6 +132,7 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 - `chore:` - Maintenance tasks
 
 Examples:
+
 ```
 feat: add risk scoring for organizations
 fix: correct dependency graph for workflow templates
@@ -146,6 +153,7 @@ docs: update installation instructions
 - Use Google-style docstrings
 
 Example:
+
 ```python
 def analyze_organization(org_name: str) -> OrgDependencyReport:
     """Analyze dependencies for a single organization.
@@ -174,6 +182,7 @@ By contributing, you agree that your contributions will be licensed under the GP
 ## Recognition
 
 Contributors will be recognized in:
+
 - GitHub contributors list
 - Release notes (for significant contributions)
 - CONTRIBUTORS.md file (planned)
