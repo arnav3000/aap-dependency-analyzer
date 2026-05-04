@@ -1065,105 +1065,163 @@ with tab4:
                 # Display results
                 st.markdown("### 🖥️ AAP 2.6 Infrastructure Requirements")
 
+                components = results.get("components", {})
+
                 # Gateway
                 st.markdown("#### Gateway (API/UI)")
-                gateway = results.get("gateway", {})
+                gateway = components.get("platform_gateway", {})
 
                 col1, col2, col3, col4 = st.columns(4)
                 with col1:
-                    st.metric("Nodes", gateway.get("nodes", "N/A"))
+                    st.metric("Pods", gateway.get("gateway_pods", "N/A"))
                 with col2:
-                    st.metric("CPU per Node", f"{gateway.get('cpu_per_node', 'N/A')}")
+                    st.metric("CPU per Pod", f"{gateway.get('cpu_per_pod', 'N/A')}")
                 with col3:
-                    st.metric("Memory per Node (GB)", f"{gateway.get('memory_per_node_gb', 'N/A')}")
+                    st.metric("Memory per Pod (GB)", f"{gateway.get('memory_per_pod_gb', 'N/A')}")
                 with col4:
                     st.metric("Total CPU", f"{gateway.get('total_cpu', 'N/A')}")
 
+                if gateway.get("note"):
+                    st.caption(f"ℹ️ {gateway['note']}")
+
                 st.markdown("---")
 
-                # Controller (Event Driven)
+                # Controller (Event Processing)
                 st.markdown("#### Controller (Event Processing)")
-                controller = results.get("controller", {})
+                controller = components.get("automation_controller_control_plane", {})
 
                 col1, col2, col3, col4 = st.columns(4)
                 with col1:
-                    st.metric("Nodes", controller.get("nodes", "N/A"))
+                    st.metric("Pods", controller.get("control_plane_pods", "N/A"))
                 with col2:
-                    st.metric("CPU per Node", f"{controller.get('cpu_per_node', 'N/A')}")
+                    st.metric("CPU per Pod", f"{controller.get('cpu_per_pod', 'N/A')}")
                 with col3:
                     st.metric(
-                        "Memory per Node (GB)", f"{controller.get('memory_per_node_gb', 'N/A')}"
+                        "Memory per Pod (GB)", f"{controller.get('memory_per_pod_gb', 'N/A')}"
                     )
                 with col4:
                     st.metric("Total CPU", f"{controller.get('total_cpu', 'N/A')}")
+
+                if controller.get("note"):
+                    st.caption(f"ℹ️ {controller['note']}")
+
+                # Show event processing details
+                with st.expander("📊 Event Processing Details"):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.metric("Event Forks", f"{controller.get('event_forks', 0):,.0f}")
+                        st.metric("Verbosity Level", controller.get("verbosity_level", "N/A"))
+                    with col2:
+                        st.metric("Forks for Jobs", f"{controller.get('forks_for_jobs', 0):,.2f}")
+                        st.metric("Events per Task", controller.get("events_per_task", "N/A"))
 
                 st.markdown("---")
 
                 # Execution Plane
                 st.markdown("#### Execution Plane (Task Runner)")
-                execution = results.get("execution", {})
+                execution = components.get("automation_controller_execution_plane", {})
 
                 col1, col2, col3, col4 = st.columns(4)
                 with col1:
-                    st.metric("Nodes", execution.get("nodes", "N/A"))
+                    st.metric("Pods", execution.get("execution_pods", "N/A"))
                 with col2:
-                    st.metric("CPU per Node", f"{execution.get('cpu_per_node', 'N/A')}")
+                    st.metric("CPU per Pod", f"{execution.get('cpu_per_pod', 'N/A')}")
                 with col3:
-                    st.metric(
-                        "Memory per Node (GB)", f"{execution.get('memory_per_node_gb', 'N/A')}"
-                    )
+                    st.metric("Memory per Pod (GB)", f"{execution.get('memory_per_pod_gb', 'N/A')}")
                 with col4:
                     st.metric("Total CPU", f"{execution.get('total_cpu', 'N/A')}")
+
+                if execution.get("note"):
+                    st.caption(f"ℹ️ {execution['note']}")
+
+                # Show execution details
+                with st.expander("⚙️ Execution Details"):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.metric("Forks Needed", f"{execution.get('forks_needed', 0):,.2f}")
+                        st.metric(
+                            "Jobs per Host per Day",
+                            f"{execution.get('jobs_per_host_per_day', 0):.1f}",
+                        )
+                    with col2:
+                        st.metric("Peak Pattern", execution.get("peak_pattern", "N/A"))
+                        st.metric("Peak Multiplier", f"{execution.get('peak_multiplier', 1.0)}x")
 
                 st.markdown("---")
 
                 # Database
                 st.markdown("#### Database (PostgreSQL)")
-                database = results.get("database", {})
+                database = components.get("database", {})
 
-                col1, col2, col3 = st.columns(3)
+                col1, col2, col3, col4 = st.columns(4)
                 with col1:
                     st.metric("CPU", f"{database.get('cpu', 'N/A')}")
                 with col2:
                     st.metric("Memory (GB)", f"{database.get('memory_gb', 'N/A')}")
                 with col3:
                     st.metric("Storage (GB)", f"{database.get('storage_gb', 'N/A')}")
+                with col4:
+                    st.metric("IOPS", f"{database.get('iops', 'N/A'):,}")
+
+                # Show storage breakdown
+                storage_breakdown = database.get("storage_breakdown", {})
+                if storage_breakdown:
+                    with st.expander("💾 Storage Breakdown"):
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.metric("Facts", f"{storage_breakdown.get('facts_mb', 0):.1f} MB")
+                        with col2:
+                            st.metric(
+                                "Inventory", f"{storage_breakdown.get('inventory_mb', 0):.1f} MB"
+                            )
+                        with col3:
+                            st.metric("Jobs", f"{storage_breakdown.get('jobs_mb', 0):.1f} MB")
 
                 st.markdown("---")
 
                 # Automation Hub
                 st.markdown("#### Automation Hub")
-                hub = results.get("hub", {})
+                hub = components.get("automation_hub", {})
 
                 col1, col2, col3 = st.columns(3)
                 with col1:
-                    st.metric("Nodes", hub.get("nodes", "N/A"))
+                    st.metric("Pods", hub.get("hub_pods", "N/A"))
                 with col2:
-                    st.metric("CPU per Node", f"{hub.get('cpu_per_node', 'N/A')}")
+                    st.metric("CPU per Pod", f"{hub.get('cpu_per_pod', 'N/A')}")
                 with col3:
-                    st.metric("Memory per Node (GB)", f"{hub.get('memory_per_node_gb', 'N/A')}")
+                    st.metric("Memory per Pod (GB)", f"{hub.get('memory_per_pod_gb', 'N/A')}")
+
+                if hub.get("note"):
+                    st.caption(f"ℹ️ {hub['note']}")
 
                 st.markdown("---")
 
                 # Summary
                 st.markdown("### 📊 Total Requirements")
 
-                total_nodes = (
-                    gateway.get("nodes", 0)
-                    + controller.get("nodes", 0)
-                    + execution.get("nodes", 0)
-                    + hub.get("nodes", 0)
-                )
-                total_cpu = results.get("total_cpu", 0)
-                total_memory = results.get("total_memory_gb", 0)
+                summary = results.get("summary", {})
 
-                col1, col2, col3 = st.columns(3)
+                col1, col2, col3, col4 = st.columns(4)
                 with col1:
-                    st.metric("Total Nodes", total_nodes, help="All container nodes")
+                    st.metric(
+                        "Total Pods", summary.get("estimated_pods", 0), help="All container pods"
+                    )
                 with col2:
-                    st.metric("Total CPU", f"{total_cpu:.1f}", help="Sum of all CPU cores")
+                    st.metric(
+                        "Total CPU", f"{summary.get('total_cpu', 0)}", help="Sum of all CPU cores"
+                    )
                 with col3:
-                    st.metric("Total Memory (GB)", f"{total_memory:.1f}", help="Sum of all RAM")
+                    st.metric(
+                        "Total Memory (GB)",
+                        f"{summary.get('total_memory_gb', 0)}",
+                        help="Sum of all RAM",
+                    )
+                with col4:
+                    st.metric(
+                        "Total Storage (GB)",
+                        f"{summary.get('total_storage_gb', 0)}",
+                        help="Database storage",
+                    )
 
                 # Save results to session
                 st.session_state.sizing_results = results
