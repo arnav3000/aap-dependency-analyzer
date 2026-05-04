@@ -36,37 +36,16 @@ services:
     - AAP_URL=${AAP_URL:-https://aap.example.com}
     - AAP_TOKEN=${AAP_TOKEN:-your_token_here}
     - AAP_VERIFY_SSL=${AAP_VERIFY_SSL:-false}
-    - SIZING_GUIDE_URL=http://sizing-guide:5002
     volumes:
     - ./data:/app/data:Z
     depends_on:
     - backend
-    - sizing-guide
     networks:
     - aap-toolkit-network
     restart: unless-stopped
     userns_mode: keep-id
     healthcheck:
       test: [CMD, curl, -f, http://localhost:8501/_stcore/health]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-
-  # AAP Sizing Guide - Capacity planning microservice
-  sizing-guide:
-    image: ghcr.io/arnav3000/aap-sizing-guide:latest
-    container_name: aap-sizing-guide
-    ports:
-    - 5002:5002
-    environment:
-    - FLASK_ENV=production
-    networks:
-    - aap-toolkit-network
-    restart: unless-stopped
-    userns_mode: keep-id
-    healthcheck:
-      test: [CMD, curl, -f, http://localhost:5002/health]
       interval: 30s
       timeout: 10s
       retries: 3
