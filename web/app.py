@@ -1,12 +1,33 @@
-"""AAP Migration Toolkit - Main Streamlit Application
+"""AAP Migration Toolkit - Unified Single-Page Application
 
-This is the main entry point for the web UI. It provides a unified interface
-for dependency analysis, migration planning, and capacity sizing.
+This is the main entry point for the web UI. It provides a unified tabbed interface
+for dependency analysis, migration planning, risk assessment, and capacity sizing.
 """
 
+import asyncio
+import json
+import sys
+import time
+from pathlib import Path
+
+import pandas as pd
 import streamlit as st
 
-# Configure page
+# Add parent directory to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from aap_migration_planner.database import DatabaseService
+from aap_migration_planner.sizing import AAP26SizingCalculator
+from web.components.graph import render_dependency_graph
+from web.components.metrics import render_resource_breakdown, render_risk_metrics
+from web.components.phase_timeline import render_migration_timeline
+from web.utils.data_loader import get_sample_data, run_analysis_async, save_to_file
+from web.utils.session import get_connection_config, init_session_state, is_connected
+
+# Initialize session
+init_session_state()
+
+# Configure page (can only be called once)
 st.set_page_config(
     page_title="AAP Migration Toolkit",
     page_icon="🚀",
@@ -41,6 +62,19 @@ st.markdown(
         padding: 1rem;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         border-radius: 0.5rem;
+        color: white;
+    }
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 50px;
+        padding: 0px 24px;
+        background-color: #f0f2f6;
+        border-radius: 4px 4px 0px 0px;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #EE0000;
         color: white;
     }
 </style>
@@ -102,114 +136,974 @@ with st.sidebar:
         st.warning("⚠️ Not connected")
 
     st.markdown("---")
-
-    # Navigation info
-    st.markdown("#### 📚 Tools")
-    st.markdown("""
-    - 🔍 **Analysis**: Dependency graphs
-    - 📋 **Migration Plan**: Phase timeline
-    - 📊 **Dashboard**: Risk metrics
-    - 📏 **Sizing Guide**: Capacity planning
-    """)
-
-    st.markdown("---")
     st.caption("Version 0.1.0")
 
-# Main page content
+
+# Main page header
 st.markdown('<div class="main-header">AAP Migration Toolkit</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="sub-header">Plan your AAP migrations with confidence</div>', unsafe_allow_html=True
+    '<div class="sub-header">Plan your AAP migrations with confidence</div>',
+    unsafe_allow_html=True,
 )
 
-# Welcome message
-st.markdown("""
-Welcome to the **AAP Migration Toolkit** - your comprehensive solution for planning
-and executing Ansible Automation Platform migrations.
-""")
+# Main tabbed interface
+tab1, tab2, tab3, tab4 = st.tabs(
+    ["🔍 Analysis", "📋 Migration Plan", "📊 Dashboard & Resources", "📏 Sizing Calculator"]
+)
 
-# Feature cards
-col1, col2 = st.columns(2)
+# ==================== TAB 1: ANALYSIS ====================
+with tab1:
+    st.markdown("### 🔍 Dependency Analysis")
+    st.caption("Discover cross-organization dependencies and visualize migration impact")
+    st.markdown("---")
 
-with col1:
-    st.markdown(
-        """
-    <div class="feature-card">
-        <h3>🔍 Dependency Analysis</h3>
-        <p>Discover cross-organization dependencies and resource relationships.
-        Visualize complex dependency graphs to understand migration impact.</p>
-    </div>
-    """,
-        unsafe_allow_html=True,
-    )
+    # Check connection
+    if not is_connected():
+        st.warning("⚠️ Not connected to AAP. Please connect using the sidebar.")
+        st.info("Enter your AAP credentials in the sidebar and click 'Connect'")
+    else:
+        # Cache Statistics
+        try:
+            db_service = DatabaseService(db_path="data/aap_analysis.db")
+            stats = db_service.get_stats()
 
-    st.markdown(
-        """
-    <div class="feature-card">
-        <h3>📋 Migration Planning</h3>
-        <p>Get recommended migration sequences with phase-by-phase breakdown.
-        Identify which organizations can migrate in parallel.</p>
-    </div>
-    """,
-        unsafe_allow_html=True,
-    )
+            if stats["total_orgs"] > 0:
+                with st.expander("📊 Cache Statistics", expanded=False):
+                    col1, col2, col3, col4 = st.columns(4)
 
-with col2:
-    st.markdown(
-        """
-    <div class="feature-card">
-        <h3>📊 Risk Assessment</h3>
-        <p>Identify migration risks before execution. See metrics, complexity scores,
-        and potential blockers across your AAP instance.</p>
-    </div>
-    """,
-        unsafe_allow_html=True,
-    )
+                    with col1:
+                        st.metric("Cached Organizations", stats["total_orgs"])
 
-    st.markdown(
-        """
-    <div class="feature-card">
-        <h3>📏 Capacity Sizing</h3>
-        <p>Calculate infrastructure requirements for your target AAP environment.
-        Get sizing recommendations based on workload analysis.</p>
-    </div>
-    """,
-        unsafe_allow_html=True,
-    )
+                    with col2:
+                        st.metric("Cached Resources", f"{stats['total_resources']:,}")
 
-st.markdown("---")
+                    with col3:
+                        st.metric("Dependencies Tracked", stats["total_dependencies"])
 
-# Quick stats if connected
-if st.session_state.aap_connected:
-    st.markdown("### 📊 Quick Stats")
+                    with col4:
+                        if stats["last_analysis"]:
+                            st.metric(
+                                "Last Analysis", stats["last_analysis"].strftime("%Y-%m-%d %H:%M")
+                            )
+                        else:
+                            st.metric("Last Analysis", "Never")
 
-    # Placeholder for actual stats
-    col1, col2, col3, col4 = st.columns(4)
+                    col_a, col_b = st.columns([3, 1])
+
+                    with col_a:
+                        st.caption(
+                            "✅ Using database cache for faster analysis. Fresh data fetched only for changed orgs."
+                        )
+
+                    with col_b:
+                        if st.button("🗑️ Clear Cache", use_container_width=True):
+                            for org in db_service.get_all_organizations():
+                                db_service.clear_organization(org.name)
+                            st.success("Cache cleared!")
+                            st.rerun()
+        except Exception:
+            pass  # Database not initialized yet
+
+        # Analysis controls
+        col1, col2, col3 = st.columns([2, 2, 1])
+
+        with col1:
+            analysis_mode = st.radio(
+                "Analysis Mode", ["All Organizations", "Specific Organization"], horizontal=True
+            )
+
+        with col2:
+            if analysis_mode == "Specific Organization":
+                org_name = st.text_input("Organization Name", placeholder="Engineering")
+            else:
+                org_name = None
+
+        with col3:
+            use_sample = st.checkbox("Use Sample Data", help="Use demo data instead of live AAP")
+
+        # Advanced settings
+        with st.expander("⚙️ Advanced Settings"):
+            st.markdown("**Parallelism Configuration**")
+            col1, col2 = st.columns(2)
+
+            with col1:
+                max_concurrent_orgs = st.slider(
+                    "Max Concurrent Organizations",
+                    min_value=1,
+                    max_value=20,
+                    value=5,
+                    help="How many organizations to analyze in parallel",
+                )
+
+            with col2:
+                max_concurrent_resources = st.slider(
+                    "Max Concurrent Resource Fetches",
+                    min_value=5,
+                    max_value=50,
+                    value=20,
+                    help="How many resource types to fetch in parallel per org",
+                )
+
+        # Run analysis button
+        if st.button("🔍 Run Analysis", type="primary", use_container_width=True):
+            if use_sample:
+                st.session_state.analysis_data = get_sample_data()
+                st.success("✅ Sample data loaded!")
+            else:
+                # Progress tracking UI
+                progress_container = st.container()
+                with progress_container:
+                    progress_bar = st.progress(0)
+                    status_text = st.empty()
+                    eta_text = st.empty()
+
+                start_time = time.time()
+                progress_data = {"current": 0, "total": 1, "message": "Starting..."}
+
+                def update_progress(current, total, message):
+                    """Progress callback to update UI."""
+                    progress_data["current"] = current
+                    progress_data["total"] = total
+                    progress_data["message"] = message
+
+                    if total > 0:
+                        progress = current / total
+                        progress_bar.progress(progress)
+
+                        elapsed = time.time() - start_time
+                        if current > 0:
+                            rate = elapsed / current
+                            remaining = (total - current) * rate
+                            eta_min = int(remaining / 60)
+                            eta_sec = int(remaining % 60)
+                            eta_text.caption(
+                                f"⏱️ ETA: {eta_min}m {eta_sec}s | Speed: {current/elapsed:.1f} orgs/sec"
+                            )
+
+                    status_text.info(f"📊 {message} ({current}/{total})")
+
+                config = get_connection_config()
+
+                try:
+                    result = asyncio.run(
+                        run_analysis_async(
+                            config["url"],
+                            config["token"],
+                            config["verify_ssl"],
+                            org_name,
+                            progress_callback=update_progress,
+                            max_concurrent_orgs=max_concurrent_orgs,
+                            max_concurrent_resources=max_concurrent_resources,
+                        )
+                    )
+
+                    if result:
+                        progress_bar.progress(1.0)
+                        status_text.success("✅ Analysis complete!")
+
+                        elapsed_total = time.time() - start_time
+                        total_orgs = progress_data.get("total", 0)
+                        eta_text.success(
+                            f"✅ Completed in {int(elapsed_total/60)}m {int(elapsed_total%60)}s | Analyzed {total_orgs} organizations"
+                        )
+
+                        st.session_state.analysis_data = result
+                        st.success("✅ Analysis complete!")
+                        save_to_file(result, "data/latest_analysis.json")
+                    else:
+                        st.error("❌ Analysis failed")
+
+                except Exception as e:
+                    st.error(f"❌ Analysis failed: {str(e)}")
+                    import traceback
+
+                    with st.expander("Show error details"):
+                        st.code(traceback.format_exc())
+
+        # Display results
+        if st.session_state.analysis_data:
+            data = st.session_state.analysis_data
+
+            # Summary metrics
+            st.markdown("### 📊 Summary")
+
+            if data.get("type") == "global":
+                col1, col2, col3, col4 = st.columns(4)
+
+                with col1:
+                    st.metric("Total Organizations", data.get("total_organizations", 0))
+
+                with col2:
+                    st.metric(
+                        "Independent",
+                        len(data.get("independent_orgs", [])),
+                        help="Organizations with no dependencies",
+                    )
+
+                with col3:
+                    st.metric(
+                        "Dependent",
+                        len(data.get("dependent_orgs", [])),
+                        help="Organizations with cross-org dependencies",
+                    )
+
+                with col4:
+                    total_deps = sum(
+                        len(report.get("dependencies", {}))
+                        for report in data.get("org_reports", {}).values()
+                    )
+                    st.metric(
+                        "Dependencies", total_deps, help="Total cross-org dependency relationships"
+                    )
+
+            st.markdown("---")
+
+            # Dependency Graph
+            st.markdown("### 🕸️ Dependency Graph")
+
+            if data.get("type") == "global":
+                render_dependency_graph(data)
+            else:
+                st.info("Dependency graph available for global analysis only")
+
+            st.markdown("---")
+
+            # Export options
+            st.markdown("### 💾 Export")
+
+            col1, col2, col3 = st.columns(3)
+
+            with col1:
+                if st.button("📄 Download JSON", use_container_width=True):
+                    json_str = json.dumps(data, indent=2, default=str)
+                    st.download_button(
+                        "⬇️ Download", json_str, file_name="analysis.json", mime="application/json"
+                    )
+
+            with col2:
+                if st.button("🖼️ Download Graph", use_container_width=True):
+                    st.info("Graph export coming soon!")
+
+            with col3:
+                if st.button("📊 Generate Report", use_container_width=True):
+                    st.info("Report generation coming soon!")
+
+        else:
+            st.info("👆 Click 'Run Analysis' to get started")
+
+
+# ==================== TAB 2: MIGRATION PLAN ====================
+with tab2:
+    st.markdown("### 📋 Migration Plan")
+    st.caption("Phase-by-phase migration timeline with dependency ordering")
+    st.markdown("---")
+
+    # Check connection
+    if not is_connected():
+        st.warning("⚠️ Not connected to AAP. Please connect using the sidebar.")
+    elif not st.session_state.analysis_data:
+        st.warning("⚠️ No analysis data available. Please run analysis first.")
+        st.info("👉 Go to **Analysis** tab and click 'Run Analysis'")
+    else:
+        data = st.session_state.analysis_data
+
+        # Only show for global analysis
+        if data.get("type") != "global":
+            st.warning(
+                "⚠️ Migration plan is only available for global (all organizations) analysis."
+            )
+            st.info("👉 Go to **Analysis** tab and run analysis with 'All Organizations' mode")
+        else:
+            # Migration summary
+            st.markdown("### 📊 Migration Summary")
+
+            col1, col2, col3 = st.columns(3)
+
+            with col1:
+                st.metric("Total Phases", len(data.get("migration_phases", [])))
+
+            with col2:
+                st.metric("Total Organizations", data.get("total_organizations", 0))
+
+            with col3:
+                phases = len(data.get("migration_phases", []))
+                estimated_days = phases * 7
+                st.metric(
+                    "Estimated Duration",
+                    f"{estimated_days} days",
+                    help="Estimated timeline assuming 1 week per phase",
+                )
+
+            st.markdown("---")
+
+            # Phase details
+            st.markdown("### 📅 Migration Phases")
+
+            migration_phases = data.get("migration_phases", [])
+            if migration_phases:
+                # Render timeline visualization
+                render_migration_timeline(migration_phases, data.get("org_reports", {}))
+
+                # Phase breakdown
+                for phase in migration_phases:
+                    phase_num = phase.get("phase")
+                    orgs = phase.get("orgs", [])
+                    description = phase.get("description", "")
+
+                    with st.expander(
+                        f"**Phase {phase_num}** - {len(orgs)} organization(s)",
+                        expanded=(phase_num == 1),
+                    ):
+                        st.markdown(f"**Description:** {description}")
+                        st.markdown(f"**Organizations:** {', '.join(orgs)}")
+
+                        org_reports = data.get("org_reports", {})
+                        total_resources = sum(
+                            org_reports.get(org, {}).get("resource_count", 0) for org in orgs
+                        )
+                        st.markdown(f"**Total Resources:** {total_resources}")
+
+                        if len(orgs) > 1:
+                            st.success(
+                                f"✅ These {len(orgs)} organizations can migrate in parallel"
+                            )
+                        else:
+                            st.info("ℹ️ Single organization in this phase")
+
+            st.markdown("---")
+
+            # Export migration plan
+            st.markdown("### 💾 Export Migration Plan")
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                if st.button("📄 Download Plan (JSON)", use_container_width=True):
+                    plan_data = {
+                        "migration_order": data.get("migration_order", []),
+                        "migration_phases": migration_phases,
+                        "independent_orgs": data.get("independent_orgs", []),
+                        "dependent_orgs": data.get("dependent_orgs", []),
+                        "total_organizations": data.get("total_organizations"),
+                    }
+                    json_str = json.dumps(plan_data, indent=2)
+                    st.download_button(
+                        "⬇️ Download",
+                        json_str,
+                        file_name="migration_plan.json",
+                        mime="application/json",
+                    )
+
+            with col2:
+                if st.button("📊 Download Plan (PDF)", use_container_width=True):
+                    st.info("PDF export coming soon!")
+
+
+# ==================== TAB 3: DASHBOARD & RESOURCES ====================
+with tab3:
+    st.markdown("### 📊 Dashboard & Resources")
+    st.caption("Risk metrics, resource distribution, and resource browser")
+    st.markdown("---")
+
+    # Check connection
+    if not is_connected():
+        st.warning("⚠️ Not connected to AAP. Please connect using the sidebar.")
+    elif not st.session_state.analysis_data:
+        st.warning("⚠️ No analysis data available. Please run analysis first.")
+        st.info("👉 Go to **Analysis** tab and click 'Run Analysis'")
+    else:
+        data = st.session_state.analysis_data
+
+        # Only show for global analysis
+        if data.get("type") != "global":
+            st.warning(
+                "⚠️ Dashboard and resources are only available for global (all organizations) analysis."
+            )
+            st.info("👉 Go to **Analysis** tab and run analysis with 'All Organizations' mode")
+        else:
+            # Sub-tabs for Dashboard and Resources
+            dashboard_tab, resources_tab = st.tabs(["📊 Dashboard", "📦 Resources"])
+
+            with dashboard_tab:
+                # Key metrics
+                st.markdown("### 📈 Key Metrics")
+
+                col1, col2, col3, col4, col5 = st.columns(5)
+
+                org_reports = data.get("org_reports", {})
+                total_orgs = data.get("total_organizations", 0)
+                independent_count = len(data.get("independent_orgs", []))
+                dependent_count = len(data.get("dependent_orgs", []))
+
+                total_resources = sum(
+                    report.get("resource_count", 0) for report in org_reports.values()
+                )
+                total_dependencies = sum(
+                    len(report.get("dependencies", {})) for report in org_reports.values()
+                )
+
+                with col1:
+                    st.metric("Total Organizations", total_orgs)
+
+                with col2:
+                    st.metric(
+                        "Independent",
+                        independent_count,
+                        delta=f"{round(independent_count/total_orgs*100) if total_orgs else 0}%",
+                        delta_color="normal",
+                    )
+
+                with col3:
+                    st.metric(
+                        "Dependent",
+                        dependent_count,
+                        delta=f"{round(dependent_count/total_orgs*100) if total_orgs else 0}%",
+                        delta_color="inverse",
+                    )
+
+                with col4:
+                    st.metric("Total Resources", total_resources)
+
+                with col5:
+                    st.metric("Cross-Org Dependencies", total_dependencies)
+
+                st.markdown("---")
+
+                # Risk scoring
+                st.markdown("### ⚠️ Risk Analysis")
+                render_risk_metrics(org_reports)
+
+                st.markdown("---")
+
+                # Resource breakdown
+                st.markdown("### 📦 Resource Distribution")
+                render_resource_breakdown(org_reports)
+
+                st.markdown("---")
+
+                # Organization comparison
+                st.markdown("### 🏢 Organization Comparison")
+
+                comparison_data = []
+                for org_name, report in org_reports.items():
+                    comparison_data.append(
+                        {
+                            "Organization": org_name,
+                            "Resources": report.get("resource_count", 0),
+                            "Dependencies": len(report.get("dependencies", {})),
+                            "Can Migrate Standalone": "✅ Yes"
+                            if report.get("can_migrate_standalone")
+                            else "❌ No",
+                            "Required Before": ", ".join(
+                                report.get("required_migrations_before", [])
+                            )
+                            or "None",
+                        }
+                    )
+
+                df = pd.DataFrame(comparison_data)
+                df = df.sort_values("Resources", ascending=False)
+                st.dataframe(df, use_container_width=True, hide_index=True)
+
+            with resources_tab:
+                st.markdown("### 📦 Resource Browser")
+                st.caption("Browse all resources in AAP")
+
+                # Organization selector
+                org_names = sorted(org_reports.keys())
+                selected_org = st.selectbox("Select Organization", org_names, key="org_selector")
+
+                if selected_org:
+                    report = org_reports[selected_org]
+                    resources = report.get("resources", {})
+
+                    # Summary metrics
+                    st.markdown(f"#### {selected_org}")
+                    col1, col2, col3 = st.columns(3)
+
+                    with col1:
+                        st.metric("Organization ID", report.get("org_id"))
+                    with col2:
+                        total_resources = sum(len(items) for items in resources.values() if items)
+                        st.metric("Total Resources", total_resources)
+                    with col3:
+                        resource_types = len([rt for rt, items in resources.items() if items])
+                        st.metric("Resource Types", resource_types)
+
+                    st.markdown("---")
+
+                    # Resource type selector
+                    available_types = sorted([rt for rt, items in resources.items() if items])
+
+                    if not available_types:
+                        st.info("No resources found in this organization")
+                    else:
+                        selected_type = st.selectbox(
+                            "Select Resource Type",
+                            available_types,
+                            format_func=lambda x: f"{x.replace('_', ' ').title()} ({len(resources.get(x, []))})",
+                            key="type_selector",
+                        )
+
+                        if selected_type:
+                            items = resources.get(selected_type, [])
+
+                            st.markdown(f"#### {selected_type.replace('_', ' ').title()}")
+                            st.caption(f"{len(items)} resources")
+
+                            # Build dataframe
+                            table_data = []
+                            for item in items:
+                                row = {
+                                    "ID": item.get("id", "N/A"),
+                                    "Name": item.get("name", "N/A"),
+                                    "Description": (item.get("description", "")[:80] + "...")
+                                    if len(item.get("description", "")) > 80
+                                    else item.get("description", ""),
+                                    "Modified": item.get("modified", "N/A")[:19],
+                                }
+                                table_data.append(row)
+
+                            if table_data:
+                                df = pd.DataFrame(table_data)
+                                st.dataframe(df, use_container_width=True, hide_index=True)
+
+
+# ==================== TAB 4: SIZING CALCULATOR ====================
+with tab4:
+    st.markdown("### 📏 AAP Capacity Sizing Calculator")
+    st.caption("Calculate infrastructure requirements for AAP 2.6 based on AAP 2.4 metrics")
+    st.markdown("---")
+
+    # Initialize calculator
+    calculator = AAP26SizingCalculator()
+
+    # Input form
+    st.markdown("### 📝 Current AAP 2.4 Metrics")
+
+    # Controller metrics
+    st.markdown("#### Control Plane")
+    col1, col2 = st.columns(2)
 
     with col1:
-        st.metric(label="Organizations", value="—", help="Total organizations analyzed")
+        num_controllers = st.number_input(
+            "Number of Controllers",
+            min_value=1,
+            value=3,
+            step=1,
+            help="Current number of controller nodes in AAP 2.4",
+        )
+
+        controller_cpu_avg = st.slider(
+            "Controller CPU Usage - Average (%)",
+            min_value=0,
+            max_value=100,
+            value=35,
+            help="Average CPU utilization across controllers",
+        )
+
+        controller_cpu_peak = st.slider(
+            "Controller CPU Usage - Peak (%)",
+            min_value=0,
+            max_value=100,
+            value=50,
+            help="Peak CPU utilization during busy periods",
+        )
 
     with col2:
-        st.metric(label="Dependencies", value="—", help="Cross-org dependencies detected")
+        controller_memory = st.slider(
+            "Controller Memory Usage (%)",
+            min_value=0,
+            max_value=100,
+            value=20,
+            help="Memory utilization on controller nodes",
+        )
 
-    with col3:
-        st.metric(label="Resources", value="—", help="Total resources scanned")
+        num_hub_nodes = st.number_input(
+            "Number of Hub Nodes", min_value=0, value=2, step=1, help="Automation Hub nodes"
+        )
 
-    with col4:
-        st.metric(label="Risk Score", value="—", help="Overall migration complexity")
+        hub_cpu = st.slider(
+            "Hub CPU Usage (%)", min_value=0, max_value=100, value=25, help="Hub CPU utilization"
+        )
 
-    st.info("👈 Select a tool from the sidebar to get started")
-else:
-    st.markdown("### 🔌 Getting Started")
-    st.info("""
-    1. Enter your AAP credentials in the sidebar
-    2. Click "Connect" to establish connection
-    3. Choose a tool from the sidebar navigation
-    4. Start analyzing your AAP environment
-    """)
+    # Execution plane metrics
+    st.markdown("---")
+    st.markdown("#### Execution Plane")
 
-st.markdown("---")
+    col1, col2 = st.columns(2)
+
+    with col1:
+        num_execution = st.number_input(
+            "Number of Execution Nodes",
+            min_value=1,
+            value=10,
+            step=1,
+            help="Current execution nodes",
+        )
+
+        execution_cpu = st.slider(
+            "Execution Node CPU Usage (%)",
+            min_value=0,
+            max_value=100,
+            value=70,
+            help="Average CPU on execution nodes",
+        )
+
+    with col2:
+        execution_memory = st.slider(
+            "Execution Node Memory Usage (%)",
+            min_value=0,
+            max_value=100,
+            value=50,
+            help="Memory utilization on execution nodes",
+        )
+
+        forks_observed = st.number_input(
+            "Observed Forks", min_value=1, value=5, help="Typical fork count in jobs"
+        )
+
+    # Database metrics
+    st.markdown("---")
+    st.markdown("#### Database")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        db_vcpu = st.number_input(
+            "Database vCPU", min_value=1, value=8, step=1, help="Database vCPU allocation"
+        )
+
+        db_memory_gb = st.number_input(
+            "Database Memory (GB)", min_value=1, value=64, step=8, help="Database RAM in GB"
+        )
+
+        db_cpu_percent = st.slider(
+            "Database CPU Usage (%)",
+            min_value=0,
+            max_value=100,
+            value=60,
+            help="Database CPU utilization",
+        )
+
+    with col2:
+        db_memory_percent = st.slider(
+            "Database Memory Usage (%)",
+            min_value=0,
+            max_value=100,
+            value=35,
+            help="Database memory utilization",
+        )
+
+        db_requests_peak = st.number_input(
+            "Concurrent DB Requests (Peak)",
+            min_value=1,
+            value=300,
+            help="Peak concurrent database connections",
+        )
+
+        db_growth_gb = st.number_input(
+            "DB Growth Per Day (GB)", min_value=0, value=50, help="Daily database growth"
+        )
+
+    # Workload metrics
+    st.markdown("---")
+    st.markdown("#### Workload Characteristics")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        playbooks_per_day = st.number_input(
+            "Playbooks Per Day (Peak)",
+            min_value=1,
+            value=10000,
+            step=1000,
+            help="Peak daily job executions",
+        )
+
+        concurrent_jobs = st.number_input(
+            "Concurrent Jobs (Peak)",
+            min_value=1,
+            value=100,
+            step=10,
+            help="Maximum concurrent jobs",
+        )
+
+        concurrent_pending = st.number_input(
+            "Concurrent Jobs Pending", min_value=0, value=20, help="Jobs waiting in queue"
+        )
+
+    with col2:
+        managed_hosts = st.number_input(
+            "Managed Hosts",
+            min_value=1,
+            value=5000,
+            step=100,
+            help="Total hosts under management",
+        )
+
+        tasks_per_job = st.number_input(
+            "Tasks Per Job (Avg)", min_value=1, value=50, help="Average tasks per playbook"
+        )
+
+        job_duration_hours = st.number_input(
+            "Job Duration (Hours)",
+            min_value=0.1,
+            max_value=24.0,
+            value=0.25,
+            step=0.25,
+            help="Average job execution time",
+        )
+
+    # Advanced settings
+    with st.expander("⚙️ Advanced Settings"):
+        col1, col2 = st.columns(2)
+
+        with col1:
+            retention_hours = st.number_input(
+                "Job Retention (Hours)", min_value=1, value=48, help="How long to keep job history"
+            )
+
+            allowed_hours = st.number_input(
+                "Allowed Hours Per Day",
+                min_value=1,
+                max_value=24,
+                value=24,
+                help="Hours available for job execution",
+            )
+
+            verbosity = st.selectbox(
+                "Verbosity Level",
+                options=[0, 1, 2, 3, 4],
+                index=1,
+                format_func=lambda x: {
+                    0: "Minimal (0)",
+                    1: "Normal (1) - Recommended",
+                    2: "Verbose (2)",
+                    3: "Debug (3)",
+                    4: "Connection Debug (4)",
+                }[x],
+                help="Ansible verbosity level affects event processing load",
+            )
+
+        with col2:
+            peak_pattern = st.selectbox(
+                "Peak Concurrency Pattern",
+                options=["distributed_24x7", "business_hours", "batch_window", "mixed"],
+                index=0,
+                format_func=lambda x: {
+                    "distributed_24x7": "Distributed 24/7 (1.0x)",
+                    "business_hours": "Business Hours (2.5x)",
+                    "batch_window": "Batch Window (10.0x)",
+                    "mixed": "Mixed Pattern (1.5x)",
+                }[x],
+                help="How jobs are distributed throughout the day",
+            )
+
+            hub_memory = st.slider(
+                "Hub Memory Usage (%)", min_value=0, max_value=100, value=30, help="Hub memory %"
+            )
+
+    # Calculate sizing
+    st.markdown("---")
+
+    if st.button("🔬 Calculate AAP 2.6 Sizing", type="primary", use_container_width=True):
+        with st.spinner("Calculating infrastructure requirements..."):
+            try:
+                # Prepare metrics dictionary
+                metrics = {
+                    "num_controllers": num_controllers,
+                    "controller_cpu_percent_avg": controller_cpu_avg,
+                    "controller_cpu_percent_peak": controller_cpu_peak,
+                    "controller_memory_percent": controller_memory,
+                    "num_hub_nodes": num_hub_nodes,
+                    "hub_cpu_percent": hub_cpu,
+                    "hub_memory_percent": hub_memory,
+                    "num_execution_nodes": num_execution,
+                    "execution_cpu_percent": execution_cpu,
+                    "execution_memory_percent": execution_memory,
+                    "forks_observed": forks_observed,
+                    "database_vcpu": db_vcpu,
+                    "database_memory_gb": db_memory_gb,
+                    "database_cpu_percent": db_cpu_percent,
+                    "database_memory_percent": db_memory_percent,
+                    "concurrent_db_requests_peak": db_requests_peak,
+                    "db_growth_per_day_gb": db_growth_gb,
+                    "playbooks_per_day_peak": playbooks_per_day,
+                    "concurrent_jobs_peak": concurrent_jobs,
+                    "concurrent_jobs_pending": concurrent_pending,
+                    "job_retention_hours": retention_hours,
+                    "managed_hosts": managed_hosts,
+                    "tasks_per_job": tasks_per_job,
+                    "job_duration_hours": job_duration_hours,
+                    "allowed_hours_per_day": allowed_hours,
+                    "verbosity_level": verbosity,
+                    "peak_pattern": peak_pattern,
+                }
+
+                # Calculate sizing
+                results = calculator.generate_sizing_recommendation(metrics)
+
+                st.success("✅ Sizing calculation complete!")
+
+                # Display warnings if any
+                if results.get("warnings"):
+                    st.warning("⚠️ **Warnings:**")
+                    for warning in results["warnings"]:
+                        st.warning(f"- {warning}")
+
+                # Display results
+                st.markdown("### 🖥️ AAP 2.6 Infrastructure Requirements")
+
+                # Gateway
+                st.markdown("#### Gateway (API/UI)")
+                gateway = results.get("gateway", {})
+
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("Nodes", gateway.get("nodes", "N/A"))
+                with col2:
+                    st.metric("CPU per Node", f"{gateway.get('cpu_per_node', 'N/A')}")
+                with col3:
+                    st.metric("Memory per Node (GB)", f"{gateway.get('memory_per_node_gb', 'N/A')}")
+                with col4:
+                    st.metric("Total CPU", f"{gateway.get('total_cpu', 'N/A')}")
+
+                st.markdown("---")
+
+                # Controller (Event Driven)
+                st.markdown("#### Controller (Event Processing)")
+                controller = results.get("controller", {})
+
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("Nodes", controller.get("nodes", "N/A"))
+                with col2:
+                    st.metric("CPU per Node", f"{controller.get('cpu_per_node', 'N/A')}")
+                with col3:
+                    st.metric(
+                        "Memory per Node (GB)", f"{controller.get('memory_per_node_gb', 'N/A')}"
+                    )
+                with col4:
+                    st.metric("Total CPU", f"{controller.get('total_cpu', 'N/A')}")
+
+                st.markdown("---")
+
+                # Execution Plane
+                st.markdown("#### Execution Plane (Task Runner)")
+                execution = results.get("execution", {})
+
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("Nodes", execution.get("nodes", "N/A"))
+                with col2:
+                    st.metric("CPU per Node", f"{execution.get('cpu_per_node', 'N/A')}")
+                with col3:
+                    st.metric(
+                        "Memory per Node (GB)", f"{execution.get('memory_per_node_gb', 'N/A')}"
+                    )
+                with col4:
+                    st.metric("Total CPU", f"{execution.get('total_cpu', 'N/A')}")
+
+                st.markdown("---")
+
+                # Database
+                st.markdown("#### Database (PostgreSQL)")
+                database = results.get("database", {})
+
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("CPU", f"{database.get('cpu', 'N/A')}")
+                with col2:
+                    st.metric("Memory (GB)", f"{database.get('memory_gb', 'N/A')}")
+                with col3:
+                    st.metric("Storage (GB)", f"{database.get('storage_gb', 'N/A')}")
+
+                st.markdown("---")
+
+                # Automation Hub
+                st.markdown("#### Automation Hub")
+                hub = results.get("hub", {})
+
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Nodes", hub.get("nodes", "N/A"))
+                with col2:
+                    st.metric("CPU per Node", f"{hub.get('cpu_per_node', 'N/A')}")
+                with col3:
+                    st.metric("Memory per Node (GB)", f"{hub.get('memory_per_node_gb', 'N/A')}")
+
+                st.markdown("---")
+
+                # Summary
+                st.markdown("### 📊 Total Requirements")
+
+                total_nodes = (
+                    gateway.get("nodes", 0)
+                    + controller.get("nodes", 0)
+                    + execution.get("nodes", 0)
+                    + hub.get("nodes", 0)
+                )
+                total_cpu = results.get("total_cpu", 0)
+                total_memory = results.get("total_memory_gb", 0)
+
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Total Nodes", total_nodes, help="All container nodes")
+                with col2:
+                    st.metric("Total CPU", f"{total_cpu:.1f}", help="Sum of all CPU cores")
+                with col3:
+                    st.metric("Total Memory (GB)", f"{total_memory:.1f}", help="Sum of all RAM")
+
+                # Save results to session
+                st.session_state.sizing_results = results
+
+            except Exception as e:
+                st.error(f"❌ Error calculating sizing: {str(e)}")
+                import traceback
+
+                with st.expander("Show error details"):
+                    st.code(traceback.format_exc())
+
+    # Export sizing results
+    if st.session_state.get("sizing_results"):
+        st.markdown("---")
+        st.markdown("### 💾 Export Sizing")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            if st.button("📄 Download Results (JSON)", use_container_width=True):
+                json_str = json.dumps(st.session_state.sizing_results, indent=2, default=str)
+                st.download_button(
+                    "⬇️ Download", json_str, file_name="aap26_sizing.json", mime="application/json"
+                )
+
+        with col2:
+            if st.button("📊 Generate Report", use_container_width=True):
+                st.info("Sizing report generation coming soon!")
+
+    # Documentation
+    st.markdown("---")
+    st.markdown("### 📚 Resources")
+
+    st.markdown(
+        """
+**Using Official Red Hat Formulas:**
+- Based on Red Hat's AAP 2.4 to 2.6 migration sizing guide
+- Includes event processing overhead calculations
+- Accounts for verbosity levels and peak patterns
+- Validates against recommended minimums
+
+**Need Help?**
+- [Red Hat AAP Documentation](https://access.redhat.com/documentation/en-us/red_hat_ansible_automation_platform/)
+- [AAP Sizing Guide](https://access.redhat.com/articles/AAP_sizing)
+"""
+    )
+
 
 # Footer
+st.markdown("---")
 st.markdown(
     """
 <div style="text-align: center; color: #666; padding: 2rem;">
