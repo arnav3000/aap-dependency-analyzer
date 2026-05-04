@@ -368,24 +368,134 @@ with tab1:
 
             st.markdown("---")
 
+            # Organization Details with Cross-Org Dependencies
+            st.markdown("### 📋 Organization Details")
+
+            if data.get("type") == "global":
+                org_reports = data.get("org_reports", {})
+
+                # Filter options
+                filter_option = st.radio(
+                    "Show",
+                    ["All", "Independent Only", "Dependent Only"],
+                    horizontal=True,
+                    key="org_filter",
+                )
+
+                for org_name, report in org_reports.items():
+                    has_deps = report.get("has_cross_org_deps", False)
+
+                    # Apply filter
+                    if filter_option == "Independent Only" and has_deps:
+                        continue
+                    if filter_option == "Dependent Only" and not has_deps:
+                        continue
+
+                    with st.expander(
+                        f"**{org_name}** - {report.get('resource_count', 0)} resources"
+                    ):
+                        col1, col2 = st.columns(2)
+
+                        with col1:
+                            st.markdown(f"**Organization ID:** {report.get('org_id')}")
+                            st.markdown(f"**Total Resources:** {report.get('resource_count', 0)}")
+                            st.markdown(
+                                f"**Can Migrate Standalone:** {'✅ Yes' if report.get('can_migrate_standalone') else '❌ No'}"
+                            )
+
+                        with col2:
+                            deps = report.get("dependencies", {})
+                            if deps:
+                                st.markdown(f"**Dependencies ({len(deps)} org(s)):**")
+                                for dep_org, dep_resources in deps.items():
+                                    st.markdown(f"  - {dep_org}: {len(dep_resources)} resource(s)")
+                            else:
+                                st.markdown("**Dependencies:** None")
+
+                        # Show required migrations before
+                        req_before = report.get("required_migrations_before", [])
+                        if req_before:
+                            st.info(
+                                f"⚠️ Must migrate these organizations first: {', '.join(req_before)}"
+                            )
+
+                        # Detailed dependency breakdown
+                        deps = report.get("dependencies", {})
+                        if deps:
+                            st.markdown("---")
+                            st.markdown("#### 🔍 Detailed Dependencies")
+
+                            for dep_org, dep_resources in deps.items():
+                                with st.expander(
+                                    f"📦 Dependencies on **{dep_org}** ({len(dep_resources)} resources)"
+                                ):
+                                    # Group by resource type
+                                    by_type = {}
+                                    for dep in dep_resources:
+                                        res_type = dep.get("resource_type", "unknown")
+                                        if res_type not in by_type:
+                                            by_type[res_type] = []
+                                        by_type[res_type].append(dep)
+
+                                    for res_type, resources in sorted(by_type.items()):
+                                        st.markdown(
+                                            f"**{res_type.replace('_', ' ').title()}** ({len(resources)})"
+                                        )
+
+                                        # Create table data
+                                        table_data = []
+                                        for dep in resources:
+                                            required_by = dep.get("required_by", [])
+                                            required_by_str = ", ".join(
+                                                [
+                                                    f"{r.get('name', 'unknown')} ({r.get('type', 'unknown')})"
+                                                    for r in required_by[:3]
+                                                ]
+                                            )
+                                            if len(required_by) > 3:
+                                                required_by_str += (
+                                                    f" ... +{len(required_by) - 3} more"
+                                                )
+
+                                            table_data.append(
+                                                {
+                                                    "Resource Name": dep.get(
+                                                        "resource_name", "N/A"
+                                                    ),
+                                                    "ID": dep.get("resource_id", "N/A"),
+                                                    "Used By": required_by_str
+                                                    if required_by_str
+                                                    else "N/A",
+                                                }
+                                            )
+
+                                        if table_data:
+                                            df = pd.DataFrame(table_data)
+                                            st.dataframe(
+                                                df, use_container_width=True, hide_index=True
+                                            )
+                                        st.markdown("")
+
+            st.markdown("---")
+
             # Export options
             st.markdown("### 💾 Export")
 
             col1, col2, col3 = st.columns(3)
 
             with col1:
-                if st.button("📄 Download JSON", use_container_width=True):
+                if st.button("📄 Download JSON", use_container_width=True, key="analysis_json"):
                     json_str = json.dumps(data, indent=2, default=str)
                     st.download_button(
                         "⬇️ Download", json_str, file_name="analysis.json", mime="application/json"
                     )
 
             with col2:
-                if st.button("🖼️ Download Graph", use_container_width=True):
+                if st.button("🖼️ Download Graph", use_container_width=True, key="analysis_graph"):
                     st.info("Graph export coming soon!")
 
             with col3:
-                if st.button("📊 Generate Report", use_container_width=True):
+                if st.button("📊 Generate Report", use_container_width=True, key="analysis_report"):
                     st.info("Report generation coming soon!")
 
         else:
@@ -478,7 +588,7 @@ with tab2:
             col1, col2 = st.columns(2)
 
             with col1:
-                if st.button("📄 Download Plan (JSON)", use_container_width=True):
+                if st.button("📄 Download Plan (JSON)", use_container_width=True, key="plan_json"):
                     plan_data = {
                         "migration_order": data.get("migration_order", []),
                         "migration_phases": migration_phases,
@@ -495,7 +605,7 @@ with tab2:
                     )
 
             with col2:
-                if st.button("📊 Download Plan (PDF)", use_container_width=True):
+                if st.button("📊 Download Plan (PDF)", use_container_width=True, key="plan_pdf"):
                     st.info("PDF export coming soon!")
 
 
@@ -1073,14 +1183,14 @@ with tab4:
         col1, col2 = st.columns(2)
 
         with col1:
-            if st.button("📄 Download Results (JSON)", use_container_width=True):
+            if st.button("📄 Download Results (JSON)", use_container_width=True, key="sizing_json"):
                 json_str = json.dumps(st.session_state.sizing_results, indent=2, default=str)
                 st.download_button(
                     "⬇️ Download", json_str, file_name="aap26_sizing.json", mime="application/json"
                 )
 
         with col2:
-            if st.button("📊 Generate Report", use_container_width=True):
+            if st.button("📊 Generate Report", use_container_width=True, key="sizing_report"):
                 st.info("Sizing report generation coming soon!")
 
     # Documentation
