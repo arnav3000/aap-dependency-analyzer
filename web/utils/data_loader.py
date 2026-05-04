@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -58,7 +59,7 @@ async def run_analysis_async(
     token: str,
     verify_ssl: bool,
     org_name: str | None = None,
-    progress_callback: callable | None = None,
+    progress_callback: Callable | None = None,
     max_concurrent_orgs: int = 5,
     max_concurrent_resources: int = 20,
 ) -> dict[str, Any] | None:
