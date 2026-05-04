@@ -18,7 +18,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from aap_migration_planner.database import DatabaseService
 from aap_migration_planner.sizing import AAP26SizingCalculator
-from web.components.graph import render_dependency_graph
 from web.components.metrics import render_resource_breakdown, render_risk_metrics
 from web.components.phase_timeline import render_migration_timeline
 from web.utils.data_loader import get_sample_data, run_analysis_async, save_to_file
@@ -358,18 +357,150 @@ with tab1:
 
             st.markdown("---")
 
-            # Dependency Graph
-            st.markdown("### 🕸️ Dependency Graph")
+            # Critical Path Analysis - Migration Blockers
+            st.markdown("### 🚨 Migration Blockers & Critical Path")
+            st.caption("Organizations that block the most migrations - must migrate these first")
 
             if data.get("type") == "global":
-                render_dependency_graph(data)
-            else:
-                st.info("Dependency graph available for global analysis only")
+                org_reports = data.get("org_reports", {})
+
+                # Calculate who blocks whom (reverse dependencies)
+                blocking_count = {}
+                for org_name, report in org_reports.items():
+                    blocking_count[org_name] = 0
+
+                # Count how many orgs each org blocks
+                for org_name, report in org_reports.items():
+                    deps = report.get("dependencies", {})
+                    for dep_org in deps.keys():
+                        if dep_org in blocking_count:
+                            blocking_count[dep_org] += 1
+
+                # Sort by blocking count (descending)
+                blockers = sorted(blocking_count.items(), key=lambda x: x[1], reverse=True)
+
+                # Show top blockers
+                top_blockers = [b for b in blockers if b[1] > 0][:10]
+
+                if top_blockers:
+                    st.warning(
+                        f"⚠️ Found {len([b for b in blockers if b[1] > 0])} organizations that block other migrations"
+                    )
+
+                    # Display in columns
+                    cols = st.columns(2)
+                    for idx, (org_name, count) in enumerate(top_blockers):
+                        with cols[idx % 2]:
+                            severity = "🔴" if count >= 5 else "🟡" if count >= 2 else "🟢"
+                            st.metric(
+                                f"{severity} {org_name}",
+                                f"{count} org(s) blocked",
+                                help=f"Must migrate {org_name} before {count} other organizations can migrate",
+                            )
+
+                    # Show migration order recommendation
+                    migration_order = data.get("migration_order", [])
+                    if migration_order:
+                        with st.expander("📋 Recommended Migration Order"):
+                            st.markdown(
+                                "Migrate in this sequence to minimize dependency conflicts:"
+                            )
+                            order_text = ""
+                            for idx, org in enumerate(migration_order[:20], 1):
+                                blocker_count = blocking_count.get(org, 0)
+                                if blocker_count > 0:
+                                    order_text += f"{idx}. **{org}** 🚨 _({blocker_count} orgs depend on this)_\n"
+                                else:
+                                    order_text += f"{idx}. {org}\n"
+                            st.markdown(order_text)
+                            if len(migration_order) > 20:
+                                st.caption(
+                                    f"... and {len(migration_order) - 20} more. See Migration Plan tab for complete order."
+                                )
+                else:
+                    st.success(
+                        "✅ No blocking dependencies! All organizations can migrate independently."
+                    )
+
+            st.markdown("---")
+
+            # Dependency Chain Explorer
+            st.markdown("### 🔗 Dependency Chain Explorer")
+            st.caption("Explore dependency relationships - shows what each organization depends on")
+
+            if data.get("type") == "global":
+                org_reports = data.get("org_reports", {})
+
+                # Search/filter
+                search_org = st.text_input(
+                    "🔍 Search Organization",
+                    placeholder="Type to filter organizations...",
+                    key="dep_chain_search",
+                )
+
+                # Filter organizations based on search
+                filtered_orgs = {}
+                for org_name, report in org_reports.items():
+                    if not search_org or search_org.lower() in org_name.lower():
+                        filtered_orgs[org_name] = report
+
+                if filtered_orgs:
+                    # Show dependency chains
+                    for org_name in sorted(filtered_orgs.keys()):
+                        report = filtered_orgs[org_name]
+                        deps = report.get("dependencies", {})
+                        can_migrate_standalone = report.get("can_migrate_standalone", True)
+
+                        # Build chain summary
+                        if deps:
+                            dep_summary = f"→ Depends on {len(deps)} org(s)"
+                            icon = "🔴" if len(deps) >= 3 else "🟡"
+                        else:
+                            dep_summary = "✅ Independent"
+                            icon = "🟢"
+
+                        with st.expander(f"{icon} **{org_name}** {dep_summary}"):
+                            if deps:
+                                st.markdown("**Dependency Chain:**")
+
+                                for dep_org, dep_resources in deps.items():
+                                    resource_count = len(dep_resources)
+                                    st.markdown(
+                                        f"  └─ **{dep_org}** ({resource_count} resource(s))"
+                                    )
+
+                                    # Show resource breakdown
+                                    resource_types = {}
+                                    for res in dep_resources:
+                                        rtype = res.get("resource_type", "unknown")
+                                        if rtype not in resource_types:
+                                            resource_types[rtype] = 0
+                                        resource_types[rtype] += 1
+
+                                    resource_list = ", ".join(
+                                        [
+                                            f"{count} {rtype.replace('_', ' ')}"
+                                            for rtype, count in sorted(resource_types.items())
+                                        ]
+                                    )
+                                    st.caption(f"     ↳ {resource_list}")
+
+                                # Show migration requirement
+                                req_before = report.get("required_migrations_before", [])
+                                if req_before:
+                                    st.info(f"⚠️ **Must migrate first:** {', '.join(req_before)}")
+                            else:
+                                st.success(
+                                    "✅ This organization has no dependencies and can migrate at any time."
+                                )
+                else:
+                    st.info(f"No organizations found matching '{search_org}'")
 
             st.markdown("---")
 
             # Organization Details with Cross-Org Dependencies
-            st.markdown("### 📋 Organization Details")
+            st.markdown("### 📋 Detailed Organization Information")
+            st.caption("Deep dive into resources and dependency details per organization")
 
             if data.get("type") == "global":
                 org_reports = data.get("org_reports", {})
