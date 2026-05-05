@@ -850,64 +850,141 @@ with tab3:
                 st.markdown("### 📦 Resource Browser")
                 st.caption("Browse all resources in AAP")
 
-                # Organization selector
-                org_names = sorted(org_reports.keys())
-                selected_org = st.selectbox("Select Organization", org_names, key="org_selector")
+                # Resource scope selector
+                resource_scope = st.radio(
+                    "Resource Scope",
+                    ["🌐 Global Resources", "🏢 Organization Resources"],
+                    key="resource_scope",
+                    horizontal=True,
+                )
 
-                if selected_org:
-                    report = org_reports[selected_org]
-                    resources = report.get("resources", {})
+                if resource_scope == "🌐 Global Resources":
+                    # Display global resources
+                    global_resources = data.get("global_resources", {})
 
-                    # Summary metrics
-                    st.markdown(f"#### {selected_org}")
-                    col1, col2, col3 = st.columns(3)
-
-                    with col1:
-                        st.metric("Organization ID", report.get("org_id"))
-                    with col2:
-                        total_resources = sum(len(items) for items in resources.values() if items)
-                        st.metric("Total Resources", total_resources)
-                    with col3:
-                        resource_types = len([rt for rt, items in resources.items() if items])
-                        st.metric("Resource Types", resource_types)
-
-                    st.markdown("---")
-
-                    # Resource type selector
-                    available_types = sorted([rt for rt, items in resources.items() if items])
-
-                    if not available_types:
-                        st.info("No resources found in this organization")
+                    if not global_resources:
+                        st.info("No global resources found in this AAP instance")
                     else:
-                        selected_type = st.selectbox(
-                            "Select Resource Type",
-                            available_types,
-                            format_func=lambda x: f"{x.replace('_', ' ').title()} ({len(resources.get(x, []))})",
-                            key="type_selector",
+                        # Summary metrics
+                        st.markdown("#### 🌐 Global Resources")
+                        st.caption("Resources not tied to any specific organization")
+
+                        col1, col2 = st.columns(2)
+
+                        with col1:
+                            total_global = sum(len(items) for items in global_resources.values())
+                            st.metric("Total Global Resources", total_global)
+                        with col2:
+                            resource_types = len(
+                                [rt for rt, items in global_resources.items() if items]
+                            )
+                            st.metric("Resource Types", resource_types)
+
+                        st.markdown("---")
+
+                        # Resource type selector
+                        available_types = sorted(
+                            [rt for rt, items in global_resources.items() if items]
                         )
 
-                        if selected_type:
-                            items = resources.get(selected_type, [])
+                        if available_types:
+                            selected_type = st.selectbox(
+                                "Select Resource Type",
+                                available_types,
+                                format_func=lambda x: f"{x.replace('_', ' ').title()} ({len(global_resources.get(x, []))})",
+                                key="global_type_selector",
+                            )
 
-                            st.markdown(f"#### {selected_type.replace('_', ' ').title()}")
-                            st.caption(f"{len(items)} resources")
+                            if selected_type:
+                                items = global_resources.get(selected_type, [])
 
-                            # Build dataframe
-                            table_data = []
-                            for item in items:
-                                row = {
-                                    "ID": item.get("id", "N/A"),
-                                    "Name": item.get("name", "N/A"),
-                                    "Description": (item.get("description", "")[:80] + "...")
-                                    if len(item.get("description", "")) > 80
-                                    else item.get("description", ""),
-                                    "Modified": item.get("modified", "N/A")[:19],
-                                }
-                                table_data.append(row)
+                                st.markdown(f"#### {selected_type.replace('_', ' ').title()}")
+                                st.caption(f"{len(items)} resources")
 
-                            if table_data:
-                                df = pd.DataFrame(table_data)
-                                st.dataframe(df, use_container_width=True, hide_index=True)
+                                # Build dataframe
+                                table_data = []
+                                for item in items:
+                                    row = {
+                                        "ID": item.get("id", "N/A"),
+                                        "Name": item.get("name", "N/A"),
+                                        "Description": (item.get("description", "")[:80] + "...")
+                                        if len(item.get("description", "")) > 80
+                                        else item.get("description", ""),
+                                        "Modified": item.get("modified", "N/A")[:19]
+                                        if item.get("modified")
+                                        else "N/A",
+                                    }
+                                    table_data.append(row)
+
+                                if table_data:
+                                    df = pd.DataFrame(table_data)
+                                    st.dataframe(df, use_container_width=True, hide_index=True)
+                        else:
+                            st.info("No global resources available")
+
+                else:
+                    # Organization-specific resources
+                    org_names = sorted(org_reports.keys())
+                    selected_org = st.selectbox(
+                        "Select Organization", org_names, key="org_selector"
+                    )
+
+                    if selected_org:
+                        report = org_reports[selected_org]
+                        resources = report.get("resources", {})
+
+                        # Summary metrics
+                        st.markdown(f"#### {selected_org}")
+                        col1, col2, col3 = st.columns(3)
+
+                        with col1:
+                            st.metric("Organization ID", report.get("org_id"))
+                        with col2:
+                            total_resources = sum(
+                                len(items) for items in resources.values() if items
+                            )
+                            st.metric("Total Resources", total_resources)
+                        with col3:
+                            resource_types = len([rt for rt, items in resources.items() if items])
+                            st.metric("Resource Types", resource_types)
+
+                        st.markdown("---")
+
+                        # Resource type selector
+                        available_types = sorted([rt for rt, items in resources.items() if items])
+
+                        if not available_types:
+                            st.info("No resources found in this organization")
+                        else:
+                            selected_type = st.selectbox(
+                                "Select Resource Type",
+                                available_types,
+                                format_func=lambda x: f"{x.replace('_', ' ').title()} ({len(resources.get(x, []))})",
+                                key="type_selector",
+                            )
+
+                            if selected_type:
+                                items = resources.get(selected_type, [])
+
+                                st.markdown(f"#### {selected_type.replace('_', ' ').title()}")
+                                st.caption(f"{len(items)} resources")
+
+                                # Build dataframe
+                                table_data = []
+                                for item in items:
+                                    row = {
+                                        "ID": item.get("id", "N/A"),
+                                        "Name": item.get("name", "N/A"),
+                                        "Description": (item.get("description", "")[:80] + "...")
+                                        if len(item.get("description", "")) > 80
+                                        else item.get("description", ""),
+                                        "Modified": item.get("modified", "N/A")[:19],
+                                    }
+                                    table_data.append(row)
+
+                                if table_data:
+                                    df = pd.DataFrame(table_data)
+                                    st.dataframe(df, use_container_width=True, hide_index=True)
 
 
 # ==================== TAB 4: SIZING CALCULATOR ====================

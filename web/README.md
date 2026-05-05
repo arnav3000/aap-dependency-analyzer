@@ -1,8 +1,8 @@
-## AAP Migration Toolkit - Web UI
+# AAP Migration Toolkit - Web UI
 
 Interactive web interface for AAP migration planning and capacity sizing.
 
-### Features
+## Features
 
 - **🔍 Dependency Analysis** - Interactive graph visualization of cross-org dependencies
 - **📋 Migration Planning** - Phase-by-phase timeline with recommended migration order
@@ -34,7 +34,7 @@ streamlit run web/app.py
 
 ### Architecture
 
-```
+```text
 web/
 ├── app.py                      # Main application entry point
 ├── pages/                      # Multi-page app sections
@@ -297,7 +297,7 @@ For 50+ organizations:
 ### Support
 
 - **Issues**: https://github.com/arnav3000/aap-migration-planner/issues
-- **Documentation**: See CLAUDE.md for architecture
+- **Documentation**: See main README.md for project overview
 - **Demo Script**: See docs/demo_script.md
 
 ### License

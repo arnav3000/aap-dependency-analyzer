@@ -237,3 +237,7 @@ report_*.html
 .cache/
 *.backup
 *.bak
+
+# Local development documentation
+CLAUDE.md
+.claude/

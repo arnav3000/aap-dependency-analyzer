@@ -47,7 +47,6 @@ paths = [
     '''.*\.backup.*''',
     '''.*\.bak$''',
     '''docs/demo_script\.md$''',
-    '''CLAUDE\.md$''',
     '''\.env\.example$''',
 ]
 
