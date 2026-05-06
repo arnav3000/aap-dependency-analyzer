@@ -374,6 +374,92 @@ with tab1:
 
             st.markdown("---")
 
+            # Resource Quality Warnings
+            if data.get("type") == "global":
+                total_duplicates = data.get("total_duplicates", 0)
+                avg_quality = data.get("average_quality_score", 100.0)
+
+                if total_duplicates > 0:
+                    st.markdown("### ⚠️ Resource Quality Warnings")
+                    st.caption("Duplicate resources detected that may cause migration issues")
+
+                    col1, col2, col3 = st.columns(3)
+
+                    with col1:
+                        severity_color = (
+                            "🔴"
+                            if total_duplicates >= 10
+                            else "🟡"
+                            if total_duplicates >= 5
+                            else "🟢"
+                        )
+                        st.metric(
+                            f"{severity_color} Duplicate Resources",
+                            total_duplicates,
+                            help="Resources with identical names in the same organization",
+                        )
+
+                    with col2:
+                        score_color = (
+                            "🔴" if avg_quality < 60 else "🟡" if avg_quality < 80 else "🟢"
+                        )
+                        st.metric(
+                            f"{score_color} Quality Score",
+                            f"{avg_quality:.1f}%",
+                            help="Average quality score across all organizations (100% = perfect)",
+                        )
+
+                    with col3:
+                        # Count orgs with duplicates
+                        orgs_with_dups = sum(
+                            1
+                            for report in data.get("org_reports", {}).values()
+                            if report.get("quality_report")
+                            and report["quality_report"]["duplicate_count"] > 0
+                        )
+                        st.metric(
+                            "🏢 Organizations Affected",
+                            orgs_with_dups,
+                            help="Organizations containing duplicate resources",
+                        )
+
+                    # Show detailed duplicates by organization
+                    with st.expander("🔍 View Duplicate Details", expanded=False):
+                        org_reports = data.get("org_reports", {})
+
+                        for org_name, report in sorted(org_reports.items()):
+                            quality_report = report.get("quality_report")
+                            if not quality_report or quality_report["duplicate_count"] == 0:
+                                continue
+
+                            st.markdown(f"#### 🏢 {org_name}")
+                            st.caption(
+                                f"Quality Score: {quality_report['quality_score']:.1f}% | {quality_report['duplicate_count']} duplicate(s)"
+                            )
+
+                            for dup in quality_report["duplicates"]:
+                                severity_emoji = {"error": "🔴", "warning": "🟡", "info": "🔵"}.get(
+                                    dup["severity"], "⚪"
+                                )
+
+                                with st.container():
+                                    col_a, col_b = st.columns([3, 1])
+
+                                    with col_a:
+                                        st.markdown(
+                                            f"{severity_emoji} **{dup['resource_type_display']}:** `{dup['name']}`"
+                                        )
+                                        st.caption(f"**Impact:** {dup['impact']}")
+
+                                    with col_b:
+                                        st.metric("Copies", dup["count"])
+
+                                    st.info(f"💡 **Recommendation:** {dup['recommendation']}")
+                                    st.caption(f"IDs: {', '.join(map(str, dup['ids']))}")
+                                    st.markdown("---")
+
+                    st.markdown("---")
+
             # Critical Path Analysis - Migration Blockers
             st.markdown("### 🚨 Migration Blockers & Critical Path")
             st.caption("Organizations that block the most migrations - must migrate these first")
