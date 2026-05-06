@@ -47,14 +47,21 @@ class AAPInstanceConfig(BaseModel):
             Normalized URL
 
         Raises:
-            ValueError: If URL is invalid
+            ValueError: If URL is invalid or uses insecure HTTP
         """
         if not v:
             raise ValueError("URL cannot be empty")
 
-        # Ensure URL starts with http:// or https://
-        if not v.startswith(("http://", "https://")):
-            raise ValueError("URL must start with http:// or https://")
+        # Security: ONLY accept HTTPS URLs
+        if not v.startswith("https://"):
+            if v.startswith("http://"):
+                raise ValueError(
+                    "HTTP URLs are not allowed for security reasons. "
+                    "API tokens must be transmitted over HTTPS only. "
+                    f"Please use: {v.replace('http://', 'https://', 1)}"
+                )
+            else:
+                raise ValueError("URL must start with https:// (HTTP is not allowed for security)")
 
         # Remove trailing slash
         v = v.rstrip("/")

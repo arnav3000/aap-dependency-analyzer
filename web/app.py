@@ -111,15 +111,25 @@ with st.sidebar:
     col1, col2 = st.columns(2)
     with col1:
         if st.button("🔌 Connect", use_container_width=True):
-            if aap_url and aap_token:
+            if not aap_url or not aap_token:
+                st.error("Please provide URL and token")
+            elif not aap_url.startswith("https://"):
+                if aap_url.startswith("http://"):
+                    suggested_url = aap_url.replace("http://", "https://", 1)
+                    st.error(
+                        f"🔒 **Security Error**: HTTP URLs are not allowed. "
+                        f"API tokens must be transmitted over HTTPS only.\n\n"
+                        f"Please use: `{suggested_url}`"
+                    )
+                else:
+                    st.error("🔒 **Security Error**: URL must start with https://")
+            else:
                 st.session_state.aap_url = aap_url
                 st.session_state.aap_token = aap_token
                 st.session_state.verify_ssl = verify_ssl
                 st.session_state.aap_connected = True
-                st.success("Connected!")
+                st.success("✅ Connected securely via HTTPS")
                 st.rerun()
-            else:
-                st.error("Please provide URL and token")
 
     with col2:
         if st.button("🔓 Disconnect", use_container_width=True):
@@ -129,10 +139,17 @@ with st.sidebar:
 
     # Connection status
     if st.session_state.aap_connected:
-        st.success("✅ Connected")
-        st.caption(f"URL: {st.session_state.aap_url}")
+        st.success("✅ Connected (HTTPS)")
+        st.caption(f"🔒 {st.session_state.aap_url}")
     else:
         st.warning("⚠️ Not connected")
+
+    # Security notice
+    with st.expander("🔒 Security Notice", expanded=False):
+        st.caption(
+            "**HTTPS Required**: This tool only accepts HTTPS URLs to protect your "
+            "API tokens during transmission. HTTP connections are blocked for security."
+        )
 
     st.markdown("---")
     st.caption("Version 0.1.0")
