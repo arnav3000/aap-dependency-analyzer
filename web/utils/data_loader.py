@@ -143,6 +143,8 @@ async def run_analysis_async(
                     "migration_order": global_report.migration_order,
                     "migration_phases": global_report.migration_phases,
                     "global_resources": global_report.global_resources,
+                    "total_duplicates": global_report.total_duplicates,
+                    "average_quality_score": global_report.average_quality_score,
                     "org_reports": {
                         org_name: {
                             "org_name": report.org_name,
@@ -165,6 +167,54 @@ async def run_analysis_async(
                             "resources": report.resources,  # All resources in this org
                             "can_migrate_standalone": report.can_migrate_standalone,
                             "required_migrations_before": report.required_migrations_before,
+                            "quality_report": (
+                                {
+                                    "org_name": report.quality_report.org_name,
+                                    "duplicate_count": report.quality_report.duplicate_count,
+                                    "quality_score": report.quality_report.quality_score,
+                                    "duplicates": [
+                                        {
+                                            "name": dup.name,
+                                            "resource_type": dup.resource_type,
+                                            "count": dup.count,
+                                            "ids": dup.ids,
+                                            "severity": dup.severity,
+                                            "impact": dup.impact,
+                                            "recommendation": dup.recommendation,
+                                        }
+                                        for dup in report.quality_report.duplicates
+                                    ],
+                                    "naming_pattern": (
+                                        {
+                                            "case_style": (
+                                                report.quality_report.naming_pattern.case_style
+                                            ),
+                                            "prefixes": (
+                                                report.quality_report.naming_pattern.prefixes
+                                            ),
+                                            "separators": (
+                                                report.quality_report.naming_pattern.separators
+                                            ),
+                                            "total_resources": (
+                                                report.quality_report.naming_pattern.total_resources
+                                            ),
+                                            "consistency_score": (
+                                                report.quality_report.naming_pattern.consistency_score
+                                            ),
+                                            "dominant_pattern": (
+                                                report.quality_report.naming_pattern.dominant_pattern
+                                            ),
+                                            "violations": (
+                                                report.quality_report.naming_pattern.violations
+                                            ),
+                                        }
+                                        if report.quality_report.naming_pattern
+                                        else None
+                                    ),
+                                }
+                                if report.quality_report
+                                else None
+                            ),
                         }
                         for org_name, report in global_report.org_reports.items()
                     },
@@ -234,6 +284,8 @@ def get_sample_data() -> dict[str, Any]:
                 "description": "Organizations dependent on Phase 2 migrations",
             },
         ],
+        "total_duplicates": 8,
+        "average_quality_score": 82.5,
         "org_reports": {
             "Engineering": {
                 "org_name": "Engineering",
@@ -255,6 +307,70 @@ def get_sample_data() -> dict[str, Any]:
                 },
                 "can_migrate_standalone": False,
                 "required_migrations_before": ["Shared Services"],
+                "quality_report": {
+                    "org_name": "Engineering",
+                    "duplicate_count": 5,
+                    "quality_score": 75.0,
+                    "duplicates": [
+                        {
+                            "name": "Deploy Application",
+                            "resource_type": "job_templates",
+                            "count": 3,
+                            "ids": [101, 102, 103],
+                            "severity": "error",
+                            "impact": "HIGH - 3 copies will cause migration conflicts",
+                            "recommendation": (
+                                "Consolidate or add environment prefix:\n"
+                                "  • prod-Deploy Application\n"
+                                "  • dev-Deploy Application\n"
+                                "  • test-Deploy Application"
+                            ),
+                        },
+                        {
+                            "name": "AWS Inventory",
+                            "resource_type": "inventories",
+                            "count": 2,
+                            "ids": [201, 202],
+                            "severity": "warning",
+                            "impact": "MEDIUM - Creates confusion and potential conflicts",
+                            "recommendation": (
+                                "Add environment or datacenter prefix:\n"
+                                "  • prod-AWS Inventory\n"
+                                "  • staging-AWS Inventory\n"
+                                "  • us-east-AWS Inventory"
+                            ),
+                        },
+                    ],
+                    "naming_pattern": {
+                        "case_style": {"kebab-case": 45, "snake_case": 30, "mixed": 25},
+                        "prefixes": {
+                            "env:prod-": 20,
+                            "env:dev-": 15,
+                            "env:test-": 10,
+                            "no-prefix": 55,
+                        },
+                        "separators": {"hyphen": 50, "underscore": 30, "none": 20},
+                        "total_resources": 100,
+                        "consistency_score": 68.5,
+                        "dominant_pattern": "kebab-case with hyphen",
+                        "violations": [
+                            {
+                                "name": "deploy_app",
+                                "resource_type": "job_templates",
+                                "current_style": "snake_case",
+                                "expected_style": "kebab-case",
+                                "resource_id": 150,
+                            },
+                            {
+                                "name": "BackupDatabase",
+                                "resource_type": "job_templates",
+                                "current_style": "PascalCase",
+                                "expected_style": "kebab-case",
+                                "resource_id": 151,
+                            },
+                        ],
+                    },
+                },
             }
         },
         "timestamp": datetime.now().isoformat(),
