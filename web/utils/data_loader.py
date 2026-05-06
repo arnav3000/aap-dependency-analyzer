@@ -176,9 +176,11 @@ async def run_analysis_async(
                                         {
                                             "name": dup.name,
                                             "resource_type": dup.resource_type,
+                                            "resource_type_display": dup.resource_type_display,
                                             "count": dup.count,
                                             "ids": dup.ids,
                                             "severity": dup.severity,
+                                            "severity_emoji": dup.severity_emoji,
                                             "impact": dup.impact,
                                             "recommendation": dup.recommendation,
                                         }
@@ -315,9 +317,11 @@ def get_sample_data() -> dict[str, Any]:
                         {
                             "name": "Deploy Application",
                             "resource_type": "job_templates",
+                            "resource_type_display": "Job Template",
                             "count": 3,
                             "ids": [101, 102, 103],
                             "severity": "error",
+                            "severity_emoji": "🔴",
                             "impact": "HIGH - 3 copies will cause migration conflicts",
                             "recommendation": (
                                 "Consolidate or add environment prefix:\n"
@@ -329,9 +333,11 @@ def get_sample_data() -> dict[str, Any]:
                         {
                             "name": "AWS Inventory",
                             "resource_type": "inventories",
+                            "resource_type_display": "Inventory",
                             "count": 2,
                             "ids": [201, 202],
                             "severity": "warning",
+                            "severity_emoji": "🟡",
                             "impact": "MEDIUM - Creates confusion and potential conflicts",
                             "recommendation": (
                                 "Add environment or datacenter prefix:\n"
