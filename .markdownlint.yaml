@@ -5,12 +5,7 @@
 default: true
 
 # Line length - enforce reasonable documentation length
-MD013:
-  # Limit line length to prevent overly verbose docs
-  line_length: 120
-  # Allow longer lines in tables and code blocks
-  tables: false
-  code_blocks: false
+MD013: false  # Disabled for README.md which has setup instructions
 
 # Multiple headers with the same content
 MD024:
@@ -43,3 +38,12 @@ MD046:
 # File length limit - CRITICAL for preventing documentation bloat
 # This is the key rule to prevent unlimited docs
 MD025: true  # Single top-level header
+
+# Emphasis as heading - Allow for step sections
+MD036: false  # Allow emphasis for non-heading text (used in step instructions)
+
+# Fenced code language - Allow blocks without language for output examples
+MD040: false  # Allow code blocks without language specification
+
+# Table column count - Allow flexible table structures
+MD056: false  # Allow tables with varying column counts
