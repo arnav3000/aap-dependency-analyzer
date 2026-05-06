@@ -241,3 +241,17 @@ report_*.html
 # Local development documentation
 CLAUDE.md
 .claude/
+
+# Security scan artifacts
+pip-audit-report.json
+bandit-report.json
+semgrep-report.json
+trivy-results.json
+trivy-results.sarif
+trivy-container-*.sarif
+trivy-container-*.json
+licenses.md
+licenses.json
+licenses.txt
+sbom.json
+sbom.xml
