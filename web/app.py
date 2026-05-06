@@ -8,6 +8,7 @@ import asyncio
 import json
 import sys
 import time
+from collections import Counter
 from pathlib import Path
 
 import pandas as pd
@@ -25,6 +26,24 @@ from web.utils.session import get_connection_config, init_session_state, is_conn
 
 # Initialize session
 init_session_state()
+
+
+# Helper functions
+def convert_case_example(from_style: str, to_style: str) -> tuple[str, str] | None:
+    """Generate example case conversion."""
+    examples = {
+        "snake_case": "deploy_application",
+        "kebab-case": "deploy-application",
+        "PascalCase": "DeployApplication",
+        "camelCase": "deployApplication",
+        "UPPER_CASE": "DEPLOY_APPLICATION",
+    }
+
+    if from_style not in examples or to_style not in examples:
+        return None
+
+    return (examples[from_style], examples[to_style])
+
 
 # Configure page (can only be called once)
 st.set_page_config(
@@ -457,6 +476,138 @@ with tab1:
                                     st.info(f"💡 **Recommendation:** {dup['recommendation']}")
                                     st.caption(f"IDs: {', '.join(map(str, dup['ids']))}")
                                     st.markdown("---")
+
+                    st.markdown("---")
+
+            # Naming Convention Analysis
+            if data.get("type") == "global":
+                org_reports = data.get("org_reports", {})
+
+                # Aggregate naming stats
+                total_consistency = []
+                all_case_styles = Counter()
+                all_violations = []
+
+                for report in org_reports.values():
+                    quality_report = report.get("quality_report")
+                    if quality_report and quality_report.get("naming_pattern"):
+                        naming = quality_report["naming_pattern"]
+                        if naming["total_resources"] > 0:
+                            total_consistency.append(naming["consistency_score"])
+                            for case, count in naming["case_style"].items():
+                                all_case_styles[case] += count
+                            all_violations.extend(naming["violations"])
+
+                if total_consistency:
+                    avg_consistency = sum(total_consistency) / len(total_consistency)
+
+                    st.markdown("### 📏 Naming Convention Analysis")
+                    st.caption("Analyze naming patterns and consistency across organizations")
+
+                    col1, col2, col3 = st.columns(3)
+
+                    with col1:
+                        consistency_color = (
+                            "🔴" if avg_consistency < 60 else "🟡" if avg_consistency < 80 else "🟢"
+                        )
+                        st.metric(
+                            f"{consistency_color} Naming Consistency",
+                            f"{avg_consistency:.1f}%",
+                            help="Overall consistency score (100% = all resources follow same pattern)",
+                        )
+
+                    with col2:
+                        total_violations = len(all_violations)
+                        st.metric(
+                            "⚠️ Naming Violations",
+                            total_violations,
+                            help="Resources not following the dominant naming pattern",
+                        )
+
+                    with col3:
+                        if all_case_styles:
+                            dominant_case = all_case_styles.most_common(1)[0]
+                            dominant_pct = (dominant_case[1] / sum(all_case_styles.values())) * 100
+                            st.metric(
+                                "📐 Dominant Style",
+                                f"{dominant_case[0]}",
+                                delta=f"{dominant_pct:.0f}%",
+                                help="Most commonly used case style",
+                            )
+
+                    # Detailed naming analysis
+                    with st.expander("📊 View Naming Pattern Details", expanded=False):
+                        if all_case_styles:
+                            st.markdown("#### Case Style Distribution")
+
+                            # Create distribution chart data
+                            case_data = []
+                            total_resources = sum(all_case_styles.values())
+                            for case, count in all_case_styles.most_common():
+                                pct = (count / total_resources) * 100
+                                case_data.append(
+                                    {"Style": case, "Count": count, "Percentage": f"{pct:.1f}%"}
+                                )
+
+                            df = pd.DataFrame(case_data)
+                            st.dataframe(df, use_container_width=True, hide_index=True)
+
+                            # Recommendations
+                            st.markdown("#### 💡 Recommendations")
+
+                            if dominant_case[1] / total_resources < 0.8:
+                                st.warning(
+                                    f"**Inconsistent Naming Detected**: Only {(dominant_case[1]/total_resources)*100:.0f}% "
+                                    f"of resources use {dominant_case[0]}. Consider standardizing on one style."
+                                )
+
+                                # Show example conversions
+                                st.markdown("**Example Standardization:**")
+                                for case, count in all_case_styles.most_common()[1:3]:
+                                    if case != dominant_case[0]:
+                                        example_conversion = convert_case_example(
+                                            case, dominant_case[0]
+                                        )
+                                        if example_conversion:
+                                            st.code(
+                                                f"{case}: {example_conversion[0]} → {dominant_case[0]}: {example_conversion[1]}"
+                                            )
+                            else:
+                                st.success(
+                                    f"✅ Good naming consistency! {(dominant_case[1]/total_resources)*100:.0f}% "
+                                    f"of resources follow {dominant_case[0]} convention."
+                                )
+
+                        # Show violations by organization
+                        if all_violations:
+                            st.markdown("#### ⚠️ Naming Violations by Organization")
+
+                            violations_by_org = {}
+                            for v in all_violations[:20]:  # Limit to 20 for display
+                                org = next(
+                                    (
+                                        name
+                                        for name, report in org_reports.items()
+                                        if report.get("quality_report")
+                                        and v
+                                        in report["quality_report"]
+                                        .get("naming_pattern", {})
+                                        .get("violations", [])
+                                    ),
+                                    "Unknown",
+                                )
+                                if org not in violations_by_org:
+                                    violations_by_org[org] = []
+                                violations_by_org[org].append(v)
+
+                            for org, violations in sorted(violations_by_org.items()):
+                                with st.container():
+                                    st.markdown(f"**🏢 {org}** ({len(violations)} violation(s))")
+                                    for v in violations[:5]:  # Show max 5 per org
+                                        st.caption(
+                                            f"  • `{v['name']}` - {v['current_style']} "
+                                            f"(expected: {v['expected_style']})"
+                                        )
 
                     st.markdown("---")
 
