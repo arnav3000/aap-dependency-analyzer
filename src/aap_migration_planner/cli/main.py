@@ -186,13 +186,32 @@ def analyze(organization, analyze_all, output):
             click.echo()
 
     except ValueError as e:
-        click.echo(f"❌ Configuration Error: {str(e)}")
+        error_msg = str(e)
+        click.echo(f"❌ Configuration Error: {error_msg}")
         click.echo()
-        click.echo("Make sure you have set the following environment variables:")
-        click.echo("  AAP_URL=https://your-aap-instance.com")
-        click.echo("  AAP_TOKEN=your_api_token")
-        click.echo()
-        click.echo("Or create a .env file with these values.")
+
+        # Specific guidance for HTTPS errors
+        if "HTTP URLs are not allowed" in error_msg or "must start with https://" in error_msg:
+            click.echo("🔒 Security Requirement: HTTPS Only")
+            click.echo()
+            click.echo("This tool requires HTTPS URLs to protect your API tokens.")
+            click.echo("HTTP connections are blocked for security reasons.")
+            click.echo()
+            click.echo("✅ Correct format:")
+            click.echo("  export AAP_URL=https://your-aap-instance.com")
+            click.echo()
+            click.echo("❌ Incorrect format:")
+            click.echo("  export AAP_URL=http://your-aap-instance.com  # Blocked!")
+            click.echo()
+        else:
+            click.echo("Make sure you have set the following environment variables:")
+            click.echo("  AAP_URL=https://your-aap-instance.com")
+            click.echo("  AAP_TOKEN=your_api_token")
+            click.echo()
+            click.echo("Or create a .env file with these values.")
+            click.echo()
+
+        click.echo("For more help, run: aap-planner validate")
         sys.exit(1)
     except Exception as e:
         click.echo(f"❌ Analysis failed: {str(e)}")
@@ -393,15 +412,27 @@ def validate():
         asyncio.run(test_connection())
 
     except ValueError as e:
-        click.echo(f"❌ Configuration Error: {str(e)}")
+        error_msg = str(e)
+        click.echo(f"❌ Configuration Error: {error_msg}")
         click.echo()
-        click.echo("Required environment variables:")
-        click.echo("  AAP_URL=https://your-aap-instance.com")
-        click.echo("  AAP_TOKEN=your_api_token")
-        click.echo()
-        click.echo("Optional:")
-        click.echo("  AAP_VERIFY_SSL=true|false  (default: true)")
-        click.echo("  AAP_TIMEOUT=30  (default: 30 seconds)")
+
+        # Specific guidance for HTTPS errors
+        if "HTTP URLs are not allowed" in error_msg or "must start with https://" in error_msg:
+            click.echo("🔒 Security Requirement: HTTPS Only")
+            click.echo()
+            click.echo("API tokens must be transmitted over HTTPS.")
+            click.echo()
+            click.echo("✅ Fix:")
+            click.echo("  export AAP_URL=https://your-aap-instance.com")
+            click.echo()
+        else:
+            click.echo("Required environment variables:")
+            click.echo("  AAP_URL=https://your-aap-instance.com")
+            click.echo("  AAP_TOKEN=your_api_token")
+            click.echo()
+            click.echo("Optional:")
+            click.echo("  AAP_VERIFY_SSL=true|false  (default: true)")
+            click.echo("  AAP_TIMEOUT=30  (default: 30 seconds)")
         sys.exit(1)
     except Exception as e:
         click.echo(f"❌ Connection failed: {str(e)}")
