@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+from aap_migration_planner.analysis.quality import QualityReport, generate_quality_report
 from aap_migration_planner.client.aap_client import AAPClient
 from aap_migration_planner.utils.logging import get_logger
 
@@ -76,6 +77,7 @@ class OrgDependencyReport:
     resources: dict[str, list[dict[str, Any]]] = field(
         default_factory=dict
     )  # All resources by type
+    quality_report: QualityReport | None = None  # Resource quality analysis
 
     def get_total_cross_org_resources(self) -> int:
         """Count total cross-org resource dependencies."""
@@ -96,6 +98,36 @@ class GlobalDependencyReport:
     migration_order: list[str]
     migration_phases: list[dict[str, Any]]
     global_resources: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    total_duplicates: int = 0  # Total duplicate resources across all orgs
+    average_quality_score: float = 100.0  # Average quality score across orgs
+
+    def get_quality_summary(self) -> dict[str, Any]:
+        """Get aggregated quality statistics across all organizations."""
+        total_dups = 0
+        total_errors = 0
+        total_warnings = 0
+        org_count = 0
+        total_score = 0.0
+
+        for report in self.org_reports.values():
+            if report.quality_report:
+                org_count += 1
+                total_dups += report.quality_report.duplicate_count
+                total_score += report.quality_report.quality_score
+
+                severity_counts = report.quality_report.get_severity_counts()
+                total_errors += severity_counts.get("error", 0)
+                total_warnings += severity_counts.get("warning", 0)
+
+        avg_score = total_score / org_count if org_count > 0 else 100.0
+
+        return {
+            "total_duplicates": total_dups,
+            "total_errors": total_errors,
+            "total_warnings": total_warnings,
+            "average_quality_score": round(avg_score, 1),
+            "orgs_analyzed": org_count,
+        }
 
 
 class CrossOrgDependencyAnalyzer:
@@ -205,6 +237,19 @@ class CrossOrgDependencyAnalyzer:
         # Analyze dependencies
         cross_org_deps = await self._analyze_resources(org_name, resources)
 
+        # Generate quality report (duplicate detection)
+        quality_report = generate_quality_report(resources, org_name)
+        logger.info(
+            "quality_analysis_complete",
+            org_name=org_name,
+            duplicate_count=quality_report.duplicate_count,
+            quality_score=quality_report.quality_score,
+            message=(
+                f"Quality: {quality_report.duplicate_count} duplicates, "
+                f"score: {quality_report.quality_score}"
+            ),
+        )
+
         # Build report
         report = OrgDependencyReport(
             org_name=org_name,
@@ -215,6 +260,7 @@ class CrossOrgDependencyAnalyzer:
             can_migrate_standalone=len(cross_org_deps) == 0,
             required_migrations_before=sorted(cross_org_deps.keys()),
             resources=resources,
+            quality_report=quality_report,
         )
 
         # Save to database cache
@@ -393,12 +439,29 @@ class CrossOrgDependencyAnalyzer:
         migration_order = topological_sort(graph)
         migration_phases = group_into_phases(graph, migration_order)
 
+        # Calculate quality summary
+        total_duplicates = sum(
+            report.quality_report.duplicate_count
+            for report in org_reports.values()
+            if report.quality_report
+        )
+        quality_scores = [
+            report.quality_report.quality_score
+            for report in org_reports.values()
+            if report.quality_report
+        ]
+        average_quality_score = (
+            sum(quality_scores) / len(quality_scores) if quality_scores else 100.0
+        )
+
         logger.info(
             "dependency_analysis_all_complete",
             total_orgs=len(org_names),
             independent_orgs=len(independent),
             dependent_orgs=len(dependent),
             migration_phases=len(migration_phases),
+            total_duplicates=total_duplicates,
+            average_quality_score=round(average_quality_score, 1),
             message="Global analysis complete",
         )
 
@@ -413,6 +476,8 @@ class CrossOrgDependencyAnalyzer:
             migration_order=migration_order,
             migration_phases=migration_phases,
             global_resources=global_resources,
+            total_duplicates=total_duplicates,
+            average_quality_score=round(average_quality_score, 1),
         )
 
     async def _get_organization(self, org_name: str) -> dict:

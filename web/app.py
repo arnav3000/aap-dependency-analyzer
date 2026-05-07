@@ -8,6 +8,8 @@ import asyncio
 import json
 import sys
 import time
+from collections import Counter
+from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -25,6 +27,24 @@ from web.utils.session import get_connection_config, init_session_state, is_conn
 
 # Initialize session
 init_session_state()
+
+
+# Helper functions
+def convert_case_example(from_style: str, to_style: str) -> tuple[str, str] | None:
+    """Generate example case conversion."""
+    examples = {
+        "snake_case": "deploy_application",
+        "kebab-case": "deploy-application",
+        "PascalCase": "DeployApplication",
+        "camelCase": "deployApplication",
+        "UPPER_CASE": "DEPLOY_APPLICATION",
+    }
+
+    if from_style not in examples or to_style not in examples:
+        return None
+
+    return (examples[from_style], examples[to_style])
+
 
 # Configure page (can only be called once)
 st.set_page_config(
@@ -163,8 +183,14 @@ st.markdown(
 )
 
 # Main tabbed interface
-tab1, tab2, tab3, tab4 = st.tabs(
-    ["🔍 Analysis", "📋 Migration Plan", "📊 Dashboard & Resources", "📏 Sizing Calculator"]
+tab1, tab2, tab3, tab4, tab5 = st.tabs(
+    [
+        "🔍 Analysis",
+        "⚠️ Quality Report",
+        "📋 Migration Plan",
+        "📊 Dashboard & Resources",
+        "📏 Sizing Calculator",
+    ]
 )
 
 # ==================== TAB 1: ANALYSIS ====================
@@ -650,8 +676,354 @@ with tab1:
             st.info("👆 Click 'Run Analysis' to get started")
 
 
-# ==================== TAB 2: MIGRATION PLAN ====================
+# ==================== TAB 2: QUALITY REPORT ====================
 with tab2:
+    st.markdown("### ⚠️ Resource Quality & Governance Report")
+    st.caption(
+        "Comprehensive quality analysis: duplicate detection, naming conventions, and governance recommendations"
+    )
+    st.markdown("---")
+
+    # Check connection
+    if not st.session_state.get("connected"):
+        st.warning("⚠️ Not connected to AAP. Please connect in the sidebar or use sample data.")
+
+    # Get data
+    data = st.session_state.get("analysis_data")
+
+    if data:
+        if data.get("type") == "global":
+            total_duplicates = data.get("total_duplicates", 0)
+            avg_quality = data.get("average_quality_score", 100.0)
+
+            # Header KPIs
+            st.markdown("#### 📊 Quality Overview")
+            col1, col2, col3, col4 = st.columns(4)
+
+            with col1:
+                severity_color = (
+                    "🔴" if total_duplicates >= 10 else "🟡" if total_duplicates >= 5 else "🟢"
+                )
+                st.metric(
+                    f"{severity_color} Duplicate Resources",
+                    total_duplicates,
+                    help="Resources with identical names in the same organization",
+                )
+
+            with col2:
+                score_color = "🔴" if avg_quality < 60 else "🟡" if avg_quality < 80 else "🟢"
+                st.metric(
+                    f"{score_color} Quality Score",
+                    f"{avg_quality:.1f}%",
+                    help="Average quality score across all organizations (100% = perfect)",
+                )
+
+            with col3:
+                orgs_with_dups = sum(
+                    1
+                    for report in data.get("org_reports", {}).values()
+                    if report.get("quality_report")
+                    and report["quality_report"]["duplicate_count"] > 0
+                )
+                st.metric(
+                    "🏢 Organizations Affected",
+                    orgs_with_dups,
+                    help="Organizations containing duplicate resources",
+                )
+
+            with col4:
+                org_reports = data.get("org_reports", {})
+                total_violations = sum(
+                    len(
+                        report.get("quality_report", {})
+                        .get("naming_pattern", {})
+                        .get("violations", [])
+                    )
+                    for report in org_reports.values()
+                )
+                st.metric(
+                    "⚠️ Naming Violations", total_violations, help="Resources not following patterns"
+                )
+
+            st.markdown("---")
+
+            # Tab within tab for different quality aspects
+            quality_tab1, quality_tab2, quality_tab3 = st.tabs(
+                ["🔴 Duplicates", "📏 Naming Patterns", "📋 Summary by Org"]
+            )
+
+            # === DUPLICATES TAB ===
+            with quality_tab1:
+                st.markdown("#### 🔴 Duplicate Resource Detection")
+
+                if total_duplicates > 0:
+                    st.warning(
+                        f"Found **{total_duplicates}** duplicate resources across **{orgs_with_dups}** organization(s)"
+                    )
+
+                    # Severity breakdown
+                    severity_counts = {"error": 0, "warning": 0, "info": 0}
+                    for report in org_reports.values():
+                        quality_report = report.get("quality_report")
+                        if quality_report:
+                            for dup in quality_report.get("duplicates", []):
+                                severity_counts[dup["severity"]] += 1
+
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("🔴 Critical (3+ copies)", severity_counts["error"])
+                    with col2:
+                        st.metric("🟡 Warning (2 copies)", severity_counts["warning"])
+                    with col3:
+                        st.metric("🔵 Info", severity_counts["info"])
+
+                    st.markdown("---")
+
+                    # Detailed duplicates by organization
+                    for org_name, report in sorted(org_reports.items()):
+                        quality_report = report.get("quality_report")
+                        if not quality_report or quality_report["duplicate_count"] == 0:
+                            continue
+
+                        with st.expander(
+                            f"🏢 **{org_name}** - {quality_report['duplicate_count']} duplicate(s) | Score: {quality_report['quality_score']:.1f}%",
+                            expanded=True,
+                        ):
+                            for dup in quality_report["duplicates"]:
+                                st.markdown(
+                                    f"### {dup['severity_emoji']} {dup['resource_type_display']}: `{dup['name']}`"
+                                )
+
+                                col_a, col_b, col_c = st.columns([2, 1, 1])
+
+                                with col_a:
+                                    st.markdown(f"**Impact:** {dup['impact']}")
+
+                                with col_b:
+                                    st.metric("Duplicate Copies", dup["count"])
+
+                                with col_c:
+                                    st.metric("Severity", dup["severity"].upper())
+
+                                st.info(f"💡 **Recommendation:**\n\n{dup['recommendation']}")
+
+                                st.caption(f"**Resource IDs:** {', '.join(map(str, dup['ids']))}")
+                                st.markdown("---")
+                else:
+                    st.success("✅ No duplicate resources found! All resource names are unique.")
+
+            # === NAMING PATTERNS TAB ===
+            with quality_tab2:
+                st.markdown("#### 📏 Naming Convention Analysis")
+
+                # Aggregate naming stats
+                total_consistency = []
+                all_case_styles = Counter()
+                all_violations = []
+                all_prefixes = Counter()
+
+                for report in org_reports.values():
+                    quality_report = report.get("quality_report")
+                    if quality_report and quality_report.get("naming_pattern"):
+                        naming = quality_report["naming_pattern"]
+                        if naming["total_resources"] > 0:
+                            total_consistency.append(naming["consistency_score"])
+                            for case, count in naming["case_style"].items():
+                                all_case_styles[case] += count
+                            for prefix, count in naming["prefixes"].items():
+                                all_prefixes[prefix] += count
+                            all_violations.extend(naming["violations"])
+
+                if total_consistency:
+                    avg_consistency = sum(total_consistency) / len(total_consistency)
+
+                    # Consistency score
+                    col1, col2, col3 = st.columns(3)
+
+                    with col1:
+                        consistency_color = (
+                            "🔴" if avg_consistency < 60 else "🟡" if avg_consistency < 80 else "🟢"
+                        )
+                        st.metric(
+                            f"{consistency_color} Naming Consistency",
+                            f"{avg_consistency:.1f}%",
+                            help="Overall consistency score (100% = all resources follow same pattern)",
+                        )
+
+                    with col2:
+                        total_violations_count = len(all_violations)
+                        st.metric(
+                            "⚠️ Total Violations",
+                            total_violations_count,
+                            help="Resources not following the dominant naming pattern",
+                        )
+
+                    with col3:
+                        if all_case_styles:
+                            dominant_case = all_case_styles.most_common(1)[0]
+                            st.metric(
+                                "📐 Dominant Style",
+                                dominant_case[0],
+                                help="Most commonly used case style",
+                            )
+
+                    st.markdown("---")
+
+                    # Case style distribution chart
+                    st.markdown("##### 📊 Case Style Distribution")
+
+                    if all_case_styles:
+                        total_resources = sum(all_case_styles.values())
+                        case_data = []
+                        for case, count in all_case_styles.most_common():
+                            pct = (count / total_resources) * 100
+                            case_data.append(
+                                {"Style": case, "Count": count, "Percentage": f"{pct:.1f}%"}
+                            )
+
+                        df = pd.DataFrame(case_data)
+                        st.dataframe(df, use_container_width=True, hide_index=True)
+
+                        # Consistency assessment
+                        dominant_pct = (dominant_case[1] / total_resources) * 100
+
+                        if dominant_pct < 60:
+                            st.error(
+                                f"❌ **Poor Consistency**: Only {dominant_pct:.0f}% of resources use {dominant_case[0]}. "
+                                f"Strong standardization recommended."
+                            )
+                        elif dominant_pct < 80:
+                            st.warning(
+                                f"⚠️ **Moderate Consistency**: {dominant_pct:.0f}% of resources use {dominant_case[0]}. "
+                                f"Consider standardizing remaining {100-dominant_pct:.0f}%."
+                            )
+                        else:
+                            st.success(
+                                f"✅ **Good Consistency**: {dominant_pct:.0f}% of resources follow {dominant_case[0]} convention."
+                            )
+
+                    st.markdown("---")
+
+                    # Prefix analysis
+                    st.markdown("##### 🏷️ Prefix Usage")
+
+                    if all_prefixes:
+                        prefix_data = []
+                        total_with_prefix = sum(
+                            count for prefix, count in all_prefixes.items() if prefix != "no-prefix"
+                        )
+                        for prefix, count in all_prefixes.most_common():
+                            prefix_data.append({"Prefix": prefix, "Count": count})
+
+                        df_prefix = pd.DataFrame(prefix_data)
+                        st.dataframe(df_prefix, use_container_width=True, hide_index=True)
+
+                        no_prefix_count = all_prefixes.get("no-prefix", 0)
+                        if no_prefix_count > total_with_prefix:
+                            st.info(
+                                f"💡 **Recommendation**: {no_prefix_count} resources have no environment/team prefix. "
+                                f"Consider adding prefixes for better organization."
+                            )
+
+                    st.markdown("---")
+
+                    # Violations breakdown
+                    if all_violations:
+                        st.markdown("##### ⚠️ Naming Violations")
+                        st.caption(f"Showing up to 50 violations (total: {len(all_violations)})")
+
+                        violations_by_org = {}
+                        for v in all_violations[:50]:
+                            org = next(
+                                (
+                                    name
+                                    for name, report in org_reports.items()
+                                    if report.get("quality_report")
+                                    and v
+                                    in report["quality_report"]
+                                    .get("naming_pattern", {})
+                                    .get("violations", [])
+                                ),
+                                "Unknown",
+                            )
+                            if org not in violations_by_org:
+                                violations_by_org[org] = []
+                            violations_by_org[org].append(v)
+
+                        for org, violations in sorted(violations_by_org.items()):
+                            with st.expander(
+                                f"🏢 **{org}** ({len(violations)} violation(s))", expanded=False
+                            ):
+                                for v in violations:
+                                    col1, col2, col3 = st.columns([2, 1, 1])
+                                    with col1:
+                                        st.code(v["name"])
+                                    with col2:
+                                        st.caption(f"Current: {v['current_style']}")
+                                    with col3:
+                                        st.caption(f"Expected: {v['expected_style']}")
+                else:
+                    st.info("No naming pattern data available.")
+
+            # === SUMMARY BY ORG TAB ===
+            with quality_tab3:
+                st.markdown("#### 📋 Quality Summary by Organization")
+
+                # Create summary table
+                summary_data = []
+                for org_name, report in sorted(org_reports.items()):
+                    quality_report = report.get("quality_report")
+                    if quality_report:
+                        naming = quality_report.get("naming_pattern", {})
+                        summary_data.append(
+                            {
+                                "Organization": org_name,
+                                "Quality Score": f"{quality_report['quality_score']:.1f}%",
+                                "Duplicates": quality_report["duplicate_count"],
+                                "Naming Consistency": (
+                                    f"{naming.get('consistency_score', 0):.1f}%"
+                                    if naming
+                                    else "N/A"
+                                ),
+                                "Violations": (len(naming.get("violations", [])) if naming else 0),
+                                "Total Resources": report.get("resource_count", 0),
+                            }
+                        )
+
+                if summary_data:
+                    df_summary = pd.DataFrame(summary_data)
+                    st.dataframe(df_summary, use_container_width=True, hide_index=True)
+
+                    # Export quality report
+                    st.markdown("---")
+                    st.markdown("#### 💾 Export Quality Report")
+
+                    if st.button("📥 Download Quality Report (JSON)", use_container_width=True):
+                        quality_data = {
+                            "generated_at": datetime.now().isoformat(),
+                            "total_duplicates": total_duplicates,
+                            "average_quality_score": avg_quality,
+                            "organizations": summary_data,
+                        }
+                        json_str = json.dumps(quality_data, indent=2, default=str)
+                        st.download_button(
+                            "⬇️ Download",
+                            json_str,
+                            file_name="quality_report.json",
+                            mime="application/json",
+                        )
+                else:
+                    st.info("No quality data available.")
+
+        else:
+            st.info("Quality report is only available for global analysis.")
+
+    else:
+        st.info("👆 Click 'Run Analysis' to generate quality report")
+
+
+# ==================== TAB 3: MIGRATION PLAN ====================
+with tab3:
     st.markdown("### 📋 Migration Plan")
     st.caption("Phase-by-phase migration timeline with dependency ordering")
     st.markdown("---")
@@ -757,8 +1129,8 @@ with tab2:
                     st.info("PDF export coming soon!")
 
 
-# ==================== TAB 3: DASHBOARD & RESOURCES ====================
-with tab3:
+# ==================== TAB 4: DASHBOARD & RESOURCES ====================
+with tab4:
     st.markdown("### 📊 Dashboard & Resources")
     st.caption("Risk metrics, resource distribution, and resource browser")
     st.markdown("---")
@@ -1004,8 +1376,8 @@ with tab3:
                                     st.dataframe(df, use_container_width=True, hide_index=True)
 
 
-# ==================== TAB 4: SIZING CALCULATOR ====================
-with tab4:
+# ==================== TAB 5: SIZING CALCULATOR ====================
+with tab5:
     st.markdown("### 📏 AAP Capacity Sizing Calculator")
     st.caption("Calculate infrastructure requirements for AAP 2.6 based on AAP 2.4 metrics")
     st.markdown("---")
