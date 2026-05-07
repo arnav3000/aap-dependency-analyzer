@@ -1,863 +1,440 @@
-# AAP Migration Planner
+# AAP Dependency Analyzer & Migration Planner
 
-> Migration planning and dependency analysis tool for Ansible Automation Platform
+> Automated dependency analysis and migration planning for Ansible Automation Platform
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 
-## What is AAP Migration Planner?
+## What Does It Do?
 
-AAP Migration Planner helps you **plan and de-risk** migrations from Ansible Automation Platform 2.x to newer versions by analyzing dependencies, detecting risks, and recommending migration sequences.
+**🔍 Analyzer:** Understand your AAP environment
 
-**Use it to:**
+- Map cross-organization dependencies automatically
+- Detect duplicate resources and naming violations
+- Generate quality scores and governance reports
+- Visualize interactive dependency graphs
 
-- 🔍 Discover cross-organization dependencies
-- 📊 Generate visual dependency graphs and risk reports
-- 🗺️ Get recommended migration order for multi-org environments
-- ⚠️ Identify potential blockers before migration starts
+**📋 Planner:** Execute safe migrations
 
-**NOT a migration execution tool** - For actual migration, see [aap-bridge](https://github.com/arnav3000/aap-bridge-fork)
+- Calculate migration order based on dependencies
+- Generate phase-by-phase migration timeline
+- Identify blockers and critical paths
+- Size infrastructure for AAP 2.6
+
+**💡 Why?** Most AAP migration failures happen because of hidden dependencies. A job template in Org A references a credential in Org B → migrate in wrong order → production outage. This tool prevents that.
+
+**🎮 Try it now:** No AAP instance needed! Includes demo data to explore all features instantly.
 
 ---
 
-## Quick Start
+## 🚀 Quick Start (2 Minutes)
 
-### Option 1: Web UI (Recommended)
+**Just want to try it? No AAP instance needed!**
 
 ```bash
-# Clone repository
+# 1. Clone and start
 git clone https://github.com/arnav3000/aap-migration-planner.git
 cd aap-migration-planner
+podman-compose up -d    # or: docker-compose up -d
 
-# Build and start containers
-make start
-
-# Access web UI
+# 2. Open browser
 open http://localhost:8501
+
+# 3. Click "🎲 Use Sample Data" button in the sidebar
+
+# 4. Explore all features with demo data!
 ```
 
-### Option 2: CLI
+**That's it!** You can now:
+
+- ✅ See dependency graphs
+- ✅ View quality reports with duplicates
+- ✅ Check migration phases
+- ✅ Try the sizing calculator
+- ✅ Export reports
+
+---
+
+### Connect to Your AAP Instance (Optional)
+
+Once you're ready to analyze your real AAP environment:
+
+1. **Create configuration file:**
+
+   ```bash
+   cp .env.example .env
+   ```
+
+2. **Edit `.env` with your credentials:**
+
+   ```bash
+   AAP_URL=https://your-aap-controller.example.com
+   AAP_TOKEN=your_api_token_here
+   AAP_VERIFY_SSL=false
+   ```
+
+3. **Restart containers:**
+
+   ```bash
+   podman-compose restart   # or: docker-compose restart
+   ```
+
+4. **In the UI:** Enter your AAP URL and token in sidebar, click "Connect"
+
+---
+
+### Option 2: CLI Installation
 
 ```bash
-# Install
+# Install from PyPI (when published)
 pip install aap-migration-planner
 
-# Configure (create .env file)
-cat > .env << EOF
-AAP_URL=https://aap-controller.example.com
-AAP_TOKEN=your_api_token_here
-AAP_VERIFY_SSL=false
-EOF
+# Or install from source
+git clone https://github.com/arnav3000/aap-migration-planner.git
+cd aap-migration-planner
+pip install -e .
 
-# Analyze single organization
-aap-planner analyze --organization "Engineering"
+# Configure
+export AAP_URL=https://your-aap.example.com
+export AAP_TOKEN=your_api_token_here
+export AAP_VERIFY_SSL=false
 
-# Analyze all organizations
+# Run analysis
 aap-planner analyze --all
-
-# Generate HTML report
-aap-planner report --format html --output migration-plan.html
+aap-planner report --format html --output report.html
 ```
+
+---
+
+## Configuration (Optional - for Real AAP Analysis)
+
+**Note:** You can use sample data without any configuration. Only needed for connecting to your AAP instance.
+
+Create a `.env` file with your AAP credentials:
+
+```bash
+# AAP Connection (HTTPS REQUIRED - HTTP is blocked for security)
+AAP_URL=https://your-aap-controller.example.com
+AAP_TOKEN=your_api_token_here
+AAP_VERIFY_SSL=false  # Set to true for production with valid SSL
+
+# Optional
+AAP_TIMEOUT=60
+LOG_LEVEL=INFO
+```
+
+**Security Note:** This tool only accepts HTTPS URLs to protect your API tokens. HTTP connections are automatically rejected.
 
 ---
 
 ## Features
 
-### 🌐 Web UI
+### 🔍 Dependency Analysis
 
-- **Interactive Dependency Graph** - Visualize org-to-org dependencies
-- **Migration Timeline** - Phase-by-phase migration plan with Gantt charts
-- **Risk Dashboard** - Executive metrics and complexity scoring
-- **Capacity Sizing** - Infrastructure sizing calculator for AAP 2.6
-- **Export Reports** - JSON, CSV, PDF (coming soon)
+- Automatic discovery of cross-org references (credentials, inventories, projects, execution environments)
+- Interactive dependency graph visualization
+- Critical path identification
 
-### 💻 CLI
+### ⚠️ Quality & Governance
 
-- **Dependency Analysis** - Discover cross-org dependencies programmatically
-- **Report Generation** - HTML, text, and JSON formats
-- **Validation** - Test AAP connectivity and credentials
-- **Automation-Ready** - CI/CD integration support
+- Duplicate resource detection (same name, same org)
+- Naming convention analysis and violations
+- Quality scoring with actionable recommendations
+- Prefix usage patterns (environment, team, region)
 
-### 🐳 Container-First
+### 📋 Migration Planning
 
-- **Podman & Docker Support** - Rootless containers for security
-- **Microservices Architecture** - Modular, scalable design
-- **One-Command Deployment** - `make start` and you're running
+- Topological sort for safe migration order
+- Phase-by-phase grouping (parallel migrations where possible)
+- Risk assessment and blocker identification
+- Migration timeline visualization
 
-### 🔒 Security
+### 📏 Infrastructure Sizing
 
-- **HTTPS-Only Enforcement** - HTTP connections blocked at all layers
-- **Token Masking** - API tokens never logged or displayed
-- **SSL Verification** - Configurable certificate validation
-- **Pre-commit Security Hooks** - Secret detection with gitleaks
+- AAP 2.6 capacity calculator
+- Execution node + control plane requirements
+- Based on Red Hat official formulas
 
----
+### 💾 Export & Reports
 
-## UI vs CLI: Which to Use?
-
-| Feature | Web UI Mode | CLI Mode | Notes |
-|---------|-------------|----------|-------|
-| **Interactive Graphs** | ✅ Yes | ❌ No | Dependency visualization, Gantt charts |
-| **Real-time Analysis** | ✅ Yes | ✅ Yes | Both support live AAP connections |
-| **Automation** | ❌ No | ✅ Yes | CLI supports scripting, CI/CD pipelines |
-| **Capacity Sizing** | ✅ Yes | ❌ No | UI includes sizing calculator |
-| **Report Export** | ✅ Yes | ✅ Yes | Both support JSON, HTML, text |
-| **Multi-user Access** | ✅ Yes | ❌ No | UI can be deployed as shared service |
-| **Resource Usage** | Higher (2GB RAM) | Lower (200MB RAM) | Containers vs Python process |
-| **Setup Complexity** | Medium | Low | Containers vs pip install |
-| **Best For** | Planning meetings, demos | Scripts, automation, headless servers |
-
-**Recommendation:**
-
-- **Use UI Mode** for interactive analysis, presentations, and demos
-- **Use CLI Mode** for automation, CI/CD pipelines, and enterprise terminals
+- HTML reports with graphs
+- JSON export for automation
+- Quality report downloads
 
 ---
 
-## Installation
+## Web UI
 
-### Prerequisites
+The web interface provides 5 main tabs:
 
-**For UI Mode (Containerized):**
+**1. 🔍 Analysis**
 
-- Podman 4.0+ or Docker 20.10+
-- podman-compose or docker-compose
-- 2GB free RAM
-- Access to AAP 2.4+ instance with API credentials
+- Summary metrics (organizations, dependencies)
+- Interactive dependency graph
+- Critical path analysis
+- Organization details
 
-**For CLI Mode:**
+**2. ⚠️ Quality Report**
 
-- Python 3.12 or higher
-- pip package manager
-- Virtual environment (recommended)
-- Access to AAP 2.4+ instance with API credentials
+- Duplicate resource detection with severity levels
+- Naming convention analysis and consistency scores
+- Violations breakdown by organization
+- Export quality reports
 
-**For Both:**
+**3. 📋 Migration Plan**
 
-- AAP instance must be accessible via HTTPS (HTTP connections are blocked for security)
-- Valid AAP API token with read permissions
+- Phase-by-phase migration timeline
+- Gantt chart visualization
+- Dependency ordering
 
----
+**4. 📊 Dashboard & Resources**
 
-## Setup Instructions
+- Executive KPIs
+- Resource breakdown by type
+- Risk metrics
 
-### UI Mode (Web Interface - Recommended)
+**5. 📏 Sizing Calculator**
 
-#### Step 1: Clone Repository
-
-```bash
-git clone https://github.com/arnav3000/aap-migration-planner.git
-cd aap-migration-planner
-```
-
-#### Step 2: Configure Environment
-
-Create a `.env` file with your AAP credentials:
-
-```bash
-# Copy template
-cp .env.example .env
-
-# Edit .env file
-nano .env
-```
-
-Add your AAP credentials (HTTPS required):
-
-```bash
-# SECURITY: Only HTTPS URLs are accepted. HTTP is blocked to protect API tokens.
-AAP_URL=https://your-aap-controller.example.com
-AAP_TOKEN=your_api_token_here
-AAP_VERIFY_SSL=true  # Set to false for self-signed certificates
-
-# Optional settings
-AAP_TIMEOUT=30
-LOG_LEVEL=INFO
-```
-
-#### Step 3: Build and Start Containers
-
-**Using Podman (Recommended):**
-
-```bash
-# Using Makefile
-make start
-
-# Or manually with podman-compose
-podman-compose -f podman-compose.yml build
-podman-compose -f podman-compose.yml up -d
-
-# Verify containers are running
-podman ps
-```
-
-**Using Docker:**
-
-```bash
-# Build containers
-docker-compose build
-
-# Start services
-docker-compose up -d
-
-# Verify containers are running
-docker ps
-```
-
-#### Step 4: Access Web UI
-
-Open your browser and navigate to:
-
-- **Web UI**: http://localhost:8501
-- **Sizing Guide API**: http://localhost:5002 (optional, used by UI internally)
-
-#### Step 5: Connect to AAP
-
-1. In the web UI sidebar, enter your AAP URL and token
-2. Click **"Connect"** button
-3. Once connected, you'll see organization list
-4. Select organizations to analyze
-
-#### Stopping the UI
-
-```bash
-# Using Makefile
-make stop
-
-# Or manually
-podman-compose -f podman-compose.yml down
-
-# To remove volumes and clean up completely
-make clean
-```
+- AAP 2.6 infrastructure sizing
+- Calculate execution nodes and control plane needs
 
 ---
 
-### CLI Mode (Terminal-Only)
-
-#### Step 1: Create Virtual Environment
+## CLI Commands
 
 ```bash
-# Create virtual environment
-python3 -m venv .venv
-
-# Activate virtual environment
-# On Linux/macOS:
-source .venv/bin/activate
-
-# On Windows:
-.venv\Scripts\activate
-```
-
-#### Step 2: Install Package
-
-**Option A: From Source (Development)**
-
-```bash
-# Clone repository
-git clone https://github.com/arnav3000/aap-migration-planner.git
-cd aap-migration-planner
-
-# Install in editable mode with dev dependencies
-pip install -e ".[dev]"
-
-# Install pre-commit hooks (optional, for development)
-pre-commit install
-```
-
-**Option B: From PyPI (When Published)**
-
-```bash
-# Install from PyPI
-pip install aap-migration-planner
-
-# Verify installation
-aap-planner --version
-```
-
-#### Step 3: Configure Environment
-
-Create a `.env` file in your working directory:
-
-```bash
-cat > .env << 'EOF'
-# AAP Connection (HTTPS REQUIRED)
-AAP_URL=https://your-aap-controller.example.com
-AAP_TOKEN=your_api_token_here
-AAP_VERIFY_SSL=true
-
-# Optional Settings
-AAP_TIMEOUT=60
-LOG_LEVEL=INFO
-EOF
-
-# Secure the file (Linux/macOS)
-chmod 600 .env
-```
-
-**OR** set environment variables directly:
-
-```bash
-export AAP_URL=https://your-aap-controller.example.com
-export AAP_TOKEN=your_api_token_here
-export AAP_VERIFY_SSL=true
-```
-
-#### Step 4: Validate Connection
-
-Test your AAP connection:
-
-```bash
+# Validate AAP connection
 aap-planner validate
-```
 
-Expected output:
-
-```
-🔐 AAP Migration Planner - Configuration Validation
-
-📋 Loading configuration...
-   URL: https://your-aap.example.com/api/v2
-   SSL Verify: true
-   Timeout: 30s
-
-🔌 Testing AAP connection...
-   ✅ Connected successfully!
-   AAP Version: 2.5.0
-
-📊 Checking permissions...
-   ✅ API credentials valid
-   Organizations accessible: 15
-
-✅ Validation successful! Ready to run analysis.
-```
-
-#### Step 5: Run Analysis
-
-**Analyze single organization:**
-
-```bash
+# Analyze single organization
 aap-planner analyze --organization "Engineering"
-```
 
-**Analyze all organizations:**
-
-```bash
+# Analyze all organizations
 aap-planner analyze --all --output analysis.json
-```
 
-**Generate reports:**
+# Generate HTML report
+aap-planner report --format html --output plan.html
 
-```bash
-# HTML report
-aap-planner report --input analysis.json --format html --output report.html
+# Generate text report
+aap-planner report --format text
 
-# Text report
-aap-planner report --input analysis.json --format text --output report.txt
-
-# JSON export
-aap-planner report --input analysis.json --format json --output export.json
-```
-
-#### Step 6: View Results
-
-```bash
-# Open HTML report in browser
-# Linux:
-xdg-open report.html
-
-# macOS:
-open report.html
-
-# Windows:
-start report.html
-
-# Or view text report
-cat report.txt
+# Generate JSON export
+aap-planner report --format json --output export.json
 ```
 
 ---
 
-## Container Architecture
+## Container Management
 
-The containerized deployment uses three services:
-
-```
-┌─────────────────────────────────────────┐
-│  Web UI (aap-toolkit-web)              │
-│  Port: 8501                             │
-│  - Streamlit-based interface            │
-│  - Interactive visualizations           │
-│  - Migration planning dashboard         │
-└────────────┬────────────────────────────┘
-             │
-             │ API Calls
-             │
-┌────────────▼────────────────────────────┐
-│  Backend (aap-toolkit-backend)         │
-│  - Analysis engine                      │
-│  - AAP API client                       │
-│  - CLI commands                         │
-└────────────┬────────────────────────────┘
-             │
-             │ Uses
-             │
-┌────────────▼────────────────────────────┐
-│  Sizing Guide (aap-sizing-guide)       │
-│  Port: 5002                             │
-│  - Capacity calculator                  │
-│  - Infrastructure sizing                │
-└─────────────────────────────────────────┘
-```
-
-### Makefile Commands
-
-The project includes a Makefile that automatically detects whether you're using Podman or Docker:
+**Start containers:**
 
 ```bash
-# Show all available commands
-make help
-
-# Container Management
-make build          # Build all container images
-make start          # Start all services (creates .env from template if missing)
-make stop           # Stop all services
-make restart        # Restart all services
-make status         # Show container status
-make clean          # Stop and remove containers, images, and volumes
-
-# Monitoring
-make logs           # Show logs from all services (follow mode)
-make logs-web       # Show web UI logs only
-
-# Container Shell Access
-make shell-backend  # Open bash shell in backend container
-make shell-web      # Open bash shell in web container
-
-# Development
-make install        # Install package locally in editable mode
-make dev            # Run development setup (install + build)
-make test           # Run pytest test suite
-make lint           # Run ruff linter
-make format         # Format code with ruff
-
-# CLI Commands (requires .env configuration)
-make validate       # Validate AAP connection
-make analyze        # Run dependency analysis (saves to data/analysis.json)
-make report         # Generate HTML report (saves to data/report.html)
+podman-compose up -d    # or docker-compose up -d
 ```
 
-**Example Workflow:**
+**Stop containers:**
 
 ```bash
-# Initial setup
-make start          # Starts containers
-# Edit .env when prompted
-make start          # Start again after configuring
-
-# Daily usage
-make logs           # Monitor activity
-make restart        # After code/config changes
-make clean          # Full cleanup when done
+podman-compose down     # or docker-compose down
 ```
 
----
-
-## Configuration
-
-### Environment Variables
-
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `AAP_URL` | ✅ Yes | - | AAP Controller URL (**must use HTTPS**) |
-| `AAP_TOKEN` | ✅ Yes | - | AAP API token for authentication |
-| `AAP_VERIFY_SSL` | ❌ No | `true` | Verify SSL certificates (set to `false` for self-signed) |
-| `AAP_TIMEOUT` | ❌ No | `30` | API request timeout in seconds |
-| `LOG_LEVEL` | ❌ No | `INFO` | Logging level (DEBUG, INFO, WARNING, ERROR) |
-
-### Example .env File
+**View logs:**
 
 ```bash
-# AAP Connection (HTTPS REQUIRED)
-AAP_URL=https://your-aap-controller.example.com
-AAP_TOKEN=your_api_token_here
-AAP_VERIFY_SSL=true  # Set to false for self-signed certificates
-
-# Optional: Performance Tuning
-AAP_TIMEOUT=60
-
-# Optional: Logging
-LOG_LEVEL=INFO
+podman-compose logs -f  # or docker-compose logs -f
 ```
 
-### Security Notes
-
-**HTTPS-Only Enforcement:**
-
-This tool enforces HTTPS connections at all layers to protect your API tokens. HTTP URLs are automatically rejected.
+**Rebuild after code changes:**
 
 ```bash
-# ✅ Correct (HTTPS)
-export AAP_URL=https://aap.example.com
-
-# ❌ Incorrect (HTTP - will be blocked)
-export AAP_URL=http://aap.example.com
-# Error: HTTP URLs are not allowed for security reasons
+podman-compose up -d --build
 ```
 
-**Self-Signed Certificates:**
-
-If your AAP instance uses self-signed certificates:
+**Clean up everything:**
 
 ```bash
-# Option 1: Disable SSL verification (not recommended for production)
-export AAP_VERIFY_SSL=false
-
-# Option 2: Add certificate to system trust store (recommended)
-sudo cp aap-cert.pem /usr/local/share/ca-certificates/
-sudo update-ca-certificates
+podman-compose down -v
+podman rmi aap-toolkit-web aap-toolkit-backend
 ```
-
-**Token Security:**
-
-- Never commit `.env` files to version control
-- Use secrets managers (Vault, AWS Secrets Manager) in production
-- Rotate tokens regularly
-- Grant minimum required permissions (read-only access)
-
-See [SECURITY.md](SECURITY.md) for comprehensive security documentation.
-
----
-
-## Troubleshooting
-
-### Common Issues
-
-#### 1. HTTP URL Rejected
-
-**Error:**
-
-```
-❌ Configuration Error: HTTP URLs are not allowed for security reasons
-```
-
-**Solution:**
-
-```bash
-# Change HTTP to HTTPS
-export AAP_URL=https://aap.example.com  # Not http://
-```
-
-#### 2. SSL Certificate Verification Failed
-
-**Error:**
-
-```
-❌ Connection failed: SSL: CERTIFICATE_VERIFY_FAILED
-```
-
-**Solution:**
-
-```bash
-# For self-signed certificates
-export AAP_VERIFY_SSL=false
-
-# Or add certificate to trust store (better)
-sudo cp aap-cert.pem /usr/local/share/ca-certificates/
-sudo update-ca-certificates
-```
-
-#### 3. Connection Timeout
-
-**Error:**
-
-```
-❌ Connection failed: Timeout
-```
-
-**Solution:**
-
-```bash
-# Increase timeout
-export AAP_TIMEOUT=120
-
-# Or check network connectivity
-curl -k https://your-aap.example.com/api/v2/ping/
-```
-
-#### 4. Container Won't Start
-
-**Error:**
-
-```
-Error: port already allocated
-```
-
-**Solution:**
-
-```bash
-# Check what's using port 8501
-lsof -i :8501
-
-# Stop conflicting service or change port
-# Edit podman-compose.yml and change port mapping
-```
-
-#### 5. Missing Dependencies in CLI Mode
-
-**Error:**
-
-```
-ModuleNotFoundError: No module named 'httpx'
-```
-
-**Solution:**
-
-```bash
-# Reinstall in virtual environment
-pip install -e ".[dev]"
-
-# Or install missing package directly
-pip install httpx
-```
-
-#### 6. Token Expired or Invalid
-
-**Error:**
-
-```
-❌ Connection failed: 401 Unauthorized
-```
-
-**Solution:**
-
-```bash
-# Generate new token in AAP UI:
-# 1. Go to AAP UI → Users → <Your User>
-# 2. Navigate to Tokens tab
-# 3. Click "Add" to create new token
-# 4. Copy token and update .env file
-
-export AAP_TOKEN=new_token_here
-aap-planner validate
-```
-
-### Debug Mode
-
-Enable debug logging for troubleshooting:
-
-```bash
-# CLI mode
-export LOG_LEVEL=DEBUG
-aap-planner validate
-
-# Container mode (edit .env)
-LOG_LEVEL=DEBUG
-```
-
-### Getting Help
-
-If you encounter issues not covered here:
-
-1. Check existing [GitHub Issues](https://github.com/arnav3000/aap-migration-planner/issues)
-2. Review [SECURITY.md](SECURITY.md) for security-related questions
-3. Review [ENTERPRISE_CLI_GUIDE.md](ENTERPRISE_CLI_GUIDE.md) for CLI usage patterns
-4. Open a new issue with:
-   - Error message (redact sensitive info)
-   - Environment details (OS, Python version, container runtime)
-   - Steps to reproduce
 
 ---
 
 ## Use Cases
 
-### 1. Pre-Migration Planning
+**1. Pre-Migration Risk Assessment**
 
-Analyze your AAP instance before starting migration to identify:
-
-- Cross-org dependencies that require coordinated migration
-- Resource risks (missing credentials, broken references)
-- Optimal migration sequence
-
-**Example:**
-
-```bash
-aap-planner analyze --all --output pre-migration-analysis.json
-aap-planner report --format html --output pre-migration-report.html
-```
-
-### 2. Multi-Org Migration Sequencing
-
-For AAP instances with multiple organizations:
-
-- Discover which orgs can be migrated independently
-- Get recommended migration order based on dependencies
-- Identify "foundation" orgs that must migrate first
-
-**Example:**
-
-```bash
-# Analyze all orgs
-aap-planner analyze --all
-
-# Generate migration order report
-aap-planner report --format html
-```
-
-### 3. Risk Assessment
-
-Before executing migration:
-
-- Detect broken references and missing dependencies
-- Estimate migration complexity per organization
+- Identify all cross-org dependencies before migration
 - Generate executive summary for stakeholders
+- Estimate migration complexity
 
-**Example:**
+**2. Multi-Org Migration Sequencing**
+
+- Discover which orgs can migrate independently
+- Get recommended migration order
+- Identify "foundation" orgs that must go first
+
+**3. Continuous Governance**
+
+- Monitor for duplicate resources
+- Enforce naming conventions
+- Track quality scores over time
+
+**4. Infrastructure Planning**
+
+- Size target AAP 2.6 environment
+- Calculate execution node requirements
+- Plan control plane capacity
+
+---
+
+## Requirements
+
+**For Container Deployment:**
+
+- Podman 4.0+ or Docker 20.10+
+- podman-compose or docker-compose
+- 2GB RAM
+- HTTPS access to AAP 2.4+ instance
+
+**For CLI:**
+
+- Python 3.12+
+- pip
+- HTTPS access to AAP 2.4+ instance
+
+**AAP Permissions:**
+
+- Read access to organizations, job templates, workflows, credentials, inventories, projects
+
+---
+
+## Troubleshooting
+
+**Port already in use:**
 
 ```bash
-# Analyze specific orgs you're concerned about
-aap-planner analyze --organization "Production" --organization "Staging"
+# Check what's using port 8501
+lsof -i :8501
+# Kill the process or change port in docker-compose.yml/podman-compose.yml
+```
+
+**SSL certificate errors:**
+
+```bash
+# For self-signed certificates, set in .env:
+AAP_VERIFY_SSL=false
+```
+
+**Connection timeout:**
+
+```bash
+# Increase timeout in .env:
+AAP_TIMEOUT=120
+```
+
+**HTTP URL rejected:**
+
+```bash
+# Change to HTTPS (HTTP is blocked for security):
+AAP_URL=https://aap.example.com  # Not http://
 ```
 
 ---
 
-## Commands
+## Architecture
 
-### `analyze`
-
-Analyze AAP instance for dependencies and risks.
-
-```bash
-# Analyze single organization
-aap-planner analyze --organization "Engineering"
-
-# Analyze multiple organizations
-aap-planner analyze --organization "Eng" --organization "Ops"
-
-# Analyze all organizations
-aap-planner analyze --all
-
-# Save analysis results
-aap-planner analyze --all --output analysis.json
+```
+┌─────────────────────────────────┐
+│  Web UI (Streamlit)            │
+│  Port: 8501                     │
+│  - Interactive dashboard        │
+│  - Dependency graphs            │
+│  - Quality reports              │
+└────────────┬────────────────────┘
+             │
+             │ Uses
+             ▼
+┌─────────────────────────────────┐
+│  Backend Engine                │
+│  - AAP API client              │
+│  - Dependency analyzer         │
+│  - Quality scanner             │
+│  - Migration planner           │
+└────────────┬────────────────────┘
+             │
+             │ Integrates
+             ▼
+┌─────────────────────────────────┐
+│  Sizing Calculator             │
+│  Port: 5002                     │
+│  - AAP 2.6 capacity formulas   │
+└─────────────────────────────────┘
 ```
 
-### `report`
+**Tech Stack:**
 
-Generate migration planning reports.
-
-```bash
-# HTML report (default)
-aap-planner report --format html --output plan.html
-
-# Text report
-aap-planner report --format text
-
-# JSON export
-aap-planner report --format json --output plan.json
-```
-
-### `validate`
-
-Validate AAP connection and credentials.
-
-```bash
-aap-planner validate
-```
+- Python 3.12
+- Streamlit (Web UI)
+- Plotly (Visualizations)
+- NetworkX (Graph algorithms)
+- SQLite (Caching)
+- httpx (Async HTTP)
 
 ---
 
-## Documentation
+## Security
 
-- [Installation Guide](docs/installation.md) *(coming soon)*
-- [Quick Start Guide](docs/quickstart.md) *(coming soon)*
-- [Use Cases](docs/use-cases.md) *(coming soon)*
-- [Examples](docs/examples/) *(coming soon)*
+✅ **HTTPS-Only:** HTTP connections blocked to protect API tokens  
+✅ **Secret Detection:** Pre-commit hooks with Gitleaks  
+✅ **SAST Scanning:** Bandit + Semgrep security analysis  
+✅ **Container Scanning:** Trivy vulnerability detection  
+✅ **Dependency Audits:** Weekly pip-audit scans  
+✅ **SBOM Generation:** Software Bill of Materials for compliance  
 
----
-
-## Development
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
-
-```bash
-# Clone repository
-git clone https://github.com/arnav3000/aap-migration-planner.git
-cd aap-migration-planner
-
-# Create virtual environment
-python3 -m venv .venv
-source .venv/bin/activate
-
-# Install dependencies (editable mode)
-pip install -e ".[dev]"
-
-# Run tests
-pytest
-
-# Run linting
-ruff check src/
-```
-
----
-
-## Roadmap
-
-- [x] Project structure and extraction from aap-bridge
-- [x] Core dependency analysis engine
-- [x] HTML report generation
-- [x] Risk scoring algorithm
-- [x] CLI implementation
-- [x] JSON export functionality
-- [x] Interactive web UI with Streamlit
-- [x] Container deployment (Podman/Docker)
-- [x] SQLite database caching
-- [x] AAP sizing calculator integration
-- [x] HTTPS-only security enforcement
-- [ ] Multi-AAP comparison mode
-- [ ] PDF report export
-- [ ] Authentication for web UI
-- [ ] Scheduled analysis (cron integration)
-- [ ] Email report delivery
+See [SECURITY.md](SECURITY.md) for details.
 
 ---
 
 ## Related Projects
 
-- [aap-bridge](https://github.com/arnav3000/aap-bridge-fork) - AAP migration execution tool
-- [ansible-lint](https://github.com/ansible/ansible-lint) - Ansible playbook linting
-- [Red Hat CoP](https://github.com/redhat-cop) - Red Hat Communities of Practice
+- **[aap-bridge](https://github.com/arnav3000/aap-bridge-fork)** - AAP migration execution tool (this tool analyzes, aap-bridge migrates)
+- **[ansible-lint](https://github.com/ansible/ansible-lint)** - Ansible playbook linting
+- **[Red Hat CoP](https://github.com/redhat-cop)** - Red Hat Communities of Practice
+
+---
+
+## Roadmap
+
+- [x] Dependency analysis engine
+- [x] Web UI with interactive graphs
+- [x] Quality & governance scanning
+- [x] Migration phase calculator
+- [x] AAP 2.6 sizing integration
+- [x] Container deployment
+- [ ] Multi-AAP comparison mode
+- [ ] PDF report export
+- [ ] Email notifications
+- [ ] Historical trending
+- [ ] Integration with aap-bridge for automated migration
 
 ---
 
 ## Contributing
 
-We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ---
 
 ## License
 
-GPL-3.0 - See [LICENSE](LICENSE) for details.
-
----
-
-## Authors
-
-- **Arnav Bhati** ([@arnav3000](https://github.com/arnav3000))
+GPL-3.0 - See [LICENSE](LICENSE)
 
 ---
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/arnav3000/aap-migration-planner/issues)
-- **Questions**: Open an issue with the "question" label
-- **Discussions**: [GitHub Discussions](https://github.com/arnav3000/aap-migration-planner/discussions) *(coming soon)*
-
----
-
-## Acknowledgments
-
-This project was extracted from [aap-bridge](https://github.com/arnav3000/aap-bridge-fork) to provide a focused, standalone migration planning tool.
+- **Issues:** [GitHub Issues](https://github.com/arnav3000/aap-migration-planner/issues)
+- **Questions:** Open an issue with the "question" label
 
 ---
 
