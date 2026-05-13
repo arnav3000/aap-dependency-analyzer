@@ -3,7 +3,27 @@
 > Automated dependency analysis and migration planning for Ansible Automation Platform
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![License: Commercial](https://img.shields.io/badge/License-Commercial-orange.svg)](LICENSE-COMMERCIAL.md)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+
+## 📜 Dual Licensing
+
+This software is available under **two license options**:
+
+### 🆓 Open Source (GPL v3) - **FREE**
+
+Perfect for personal use, academic research, and open-source projects.  
+[View GPL v3 License →](LICENSE)
+
+### 💼 Commercial License - **Paid**
+
+Required for proprietary software, SaaS offerings, and commercial products.  
+Includes support, warranty, and no GPL copyleft obligations.  
+[View Commercial License →](LICENSE-COMMERCIAL.md) | [Pricing →](PRICING.md)
+
+**Need help choosing?** Email: arnav3000@gmail.com
+
+---
 
 ## What Does It Do?
 
@@ -427,14 +447,48 @@ Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 
-GPL-3.0 - See [LICENSE](LICENSE)
+This software is **dual-licensed**:
+
+### Open Source License (GPL v3)
+
+Free for personal, academic, and GPL-compatible projects.  
+📄 [View GPL v3 License](LICENSE)
+
+### Commercial License
+
+Required for proprietary/closed-source software, SaaS offerings, and commercial use cases that cannot comply with GPL v3 copyleft requirements.
+
+**Benefits:**
+
+- ✅ Proprietary use without GPL obligations
+- ✅ SaaS and managed service deployment
+- ✅ Warranty and indemnification
+- ✅ Priority support (email, phone, 24/7 available)
+- ✅ Custom development options
+
+📄 [View Commercial License](LICENSE-COMMERCIAL.md)  
+💰 [View Pricing](PRICING.md)
+
+**Questions about licensing?** Email: arnav3000@gmail.com
 
 ---
 
 ## Support
 
+### Community Support (GPL v3)
+
 - **Issues:** [GitHub Issues](https://github.com/arnav3000/aap-migration-planner/issues)
 - **Questions:** Open an issue with the "question" label
+- **Response Time:** Best effort
+
+### Commercial Support
+
+- **Email Support:** Included with all commercial licenses (48h response)
+- **Priority Support:** Available with Enterprise license (4h response)
+- **Premium Support:** 24/7/365 with 1h response (add-on)
+- **Professional Services:** Custom development, training, migration services
+
+📧 **Contact:** arnav3000@gmail.com
 
 ---
 
