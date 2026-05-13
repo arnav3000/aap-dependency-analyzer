@@ -21,7 +21,7 @@ Required for proprietary software, SaaS offerings, and commercial products.
 Includes support, warranty, and no GPL copyleft obligations.  
 [View Commercial License →](LICENSE-COMMERCIAL.md) | [Pricing →](PRICING.md)
 
-**Need help choosing?** Email: arnav3000@gmail.com
+**Need help choosing?** Email: singh.arnav30@gmail.com
 
 ---
 
@@ -469,7 +469,7 @@ Required for proprietary/closed-source software, SaaS offerings, and commercial 
 📄 [View Commercial License](LICENSE-COMMERCIAL.md)  
 💰 [View Pricing](PRICING.md)
 
-**Questions about licensing?** Email: arnav3000@gmail.com
+**Questions about licensing?** Email: singh.arnav30@gmail.com
 
 ---
 
@@ -488,7 +488,7 @@ Required for proprietary/closed-source software, SaaS offerings, and commercial 
 - **Premium Support:** 24/7/365 with 1h response (add-on)
 - **Professional Services:** Custom development, training, migration services
 
-📧 **Contact:** arnav3000@gmail.com
+📧 **Contact:** singh.arnav30@gmail.com
 
 ---
 

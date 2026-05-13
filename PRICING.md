@@ -50,7 +50,7 @@ Required if you want to:
 
 **Best For:** Mid-sized companies, internal tools
 
-[**Contact Sales →**](mailto:arnav3000@gmail.com?subject=Standard%20License%20Inquiry)
+[**Contact Sales →**](mailto:singh.arnav30@gmail.com?subject=Standard%20License%20Inquiry)
 
 ---
 
@@ -73,7 +73,7 @@ Required if you want to:
 
 **Best For:** Enterprises, MSPs, large deployments
 
-[**Request Quote →**](mailto:arnav3000@gmail.com?subject=Enterprise%20License%20Quote)
+[**Request Quote →**](mailto:singh.arnav30@gmail.com?subject=Enterprise%20License%20Quote)
 
 ---
 
@@ -92,7 +92,7 @@ Required if you want to:
 
 **Best For:** ISVs, SaaS platforms, tool vendors
 
-[**Partner Inquiry →**](mailto:arnav3000@gmail.com?subject=OEM%20Partnership)
+[**Partner Inquiry →**](mailto:singh.arnav30@gmail.com?subject=OEM%20Partnership)
 
 ---
 
@@ -199,7 +199,7 @@ _* GPL allows commercial use but requires derivative works to be GPL-licensed (c
 ✅ Commercial license only required for production deployment
 
 **Questions during evaluation?**  
-Email: arnav3000@gmail.com  
+Email: singh.arnav30@gmail.com  
 Response time: 2 business days
 
 ---
@@ -262,7 +262,7 @@ A: Contact us within 30 days. We'll work out a fair arrangement.
 
 **Ready to purchase or have questions?**
 
-📧 **Email:** arnav3000@gmail.com  
+📧 **Email:** singh.arnav30@gmail.com  
 📞 **Subject:** Commercial License - [Standard/Enterprise/OEM]
 
 **Include in your inquiry:**

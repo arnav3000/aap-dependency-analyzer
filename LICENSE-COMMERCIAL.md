@@ -195,7 +195,7 @@ GPL v3 software is provided "AS IS" without warranty of any kind.
 
 To obtain a commercial license:
 
-**Email:** arnav3000@gmail.com  
+**Email:** singh.arnav30@gmail.com  
 **Subject:** Commercial License Inquiry - AAP Dependency Analyzer
 
 **Include in your inquiry:**
@@ -234,17 +234,15 @@ A: Yes, commercial licenses include source code. Enterprise tier includes escrow
 
 ## Legal
 
-This Commercial License Agreement is governed by the laws of **[Your Jurisdiction]** without regard to conflict of law principles.
+This Commercial License Agreement is governed by the laws of Germany without regard to conflict of law principles.
 
 **Licensor:**  
 Arnav Bhati  
-[Your Address]  
-[Your Country]
+Germany  
 
 **Effective Date:** May 12, 2026  
 **Version:** 1.0
 
 ---
 
-**For legal questions, contact:** legal@example.com  
-**For sales inquiries, contact:** arnav3000@gmail.com
+**For sales inquiries, contact:** singh.arnav30@gmail.com

@@ -250,7 +250,7 @@ If you distribute modified versions, they must also be GPL v3. This means:
 
 ### Free Consultation
 
-Email us your use case: arnav3000@gmail.com
+Email us your use case: singh.arnav30@gmail.com
 
 Include:
 
@@ -274,7 +274,7 @@ If you're unsure whether you need commercial license:
 
 1. Start with GPL v3 for testing
 2. Consult with your legal team
-3. Email us: arnav3000@gmail.com
+3. Email us: singh.arnav30@gmail.com
 
 **Better to ask than risk compliance issues later.**
 
@@ -305,10 +305,10 @@ If using commercial license:
 
 ## Contact
 
-**Licensing Questions:** arnav3000@gmail.com  
+**Licensing Questions:** singh.arnav30@gmail.com  
 **Subject:** Licensing Question - [Brief Description]
 
-**Sales Inquiries:** arnav3000@gmail.com  
+**Sales Inquiries:** singh.arnav30@gmail.com  
 **Subject:** Commercial License Quote
 
 **Response Time:** 2 business days
